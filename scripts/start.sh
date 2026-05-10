@@ -25,5 +25,5 @@ cd "$PROJECT_DIR"
 exec "$UVICORN" app.main:app \
   --host 0.0.0.0 \
   --port "${APP_PORT:-8000}" \
-  --log-level "${LOG_LEVEL:-info}" \
+  --log-level "$(echo "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')" \
   --access-log
