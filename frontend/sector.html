@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>업종별 현황 — 댕댕투자</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <style>
+    .sector-table th.num, .sector-table td.num { text-align: right; }
+    .sector-table td.sector-name {
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sector-table td.sector-name:hover { text-decoration: underline; }
+
+    .rsi-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .rsi-high { background: rgba(255,123,114,.18); color: #ff7b72; }
+    .rsi-low  { background: rgba(121,192,255,.18); color: #79c0ff; }
+    .rsi-mid  { color: var(--text-primary); }
+
+    /* Popup overlay */
+    .popup-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.88);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .popup-overlay.open { display: flex; }
+    .popup-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: min(92vw, 860px);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .popup-title { font-size: 17px; font-weight: 700; }
+    .popup-close {
+      background: none; border: none;
+      color: var(--text2); font-size: 20px;
+      cursor: pointer; padding: 0;
+    }
+    .popup-body { overflow-y: auto; padding: 16px 24px 20px; }
+    .popup-body table { width: 100%; }
+
+    .mktcap-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="/main.html">🐶 <span>댕댕투자</span></a>
+    <div class="navbar-nav">
+      <span class="nav-user" id="navUser"></span>
+      <a class="nav-link" href="/main.html">홈</a>
+      <a class="nav-link" href="/settings.html">⚙️ 조건설정</a>
+      <a class="nav-link active" href="/sector.html">🏭 업종현황</a>
+      <a class="nav-link" href="/research.html">📰 리서치</a>
+      <a class="nav-link" href="/notify.html">🔔 알림설정</a>
+      <a class="nav-link" href="/admin.html">🛠 배치관리</a>
+      <button class="btn btn-outline btn-sm" id="logoutBtn">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <div class="page-title">🏭 업종별 현황</div>
+        <div class="page-subtitle" id="pageSubtitle">최신 거래일 기준 업종 평균 지표</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="loading" id="loadingEl"><div class="spinner"></div>불러오는 중...</div>
+      <div class="table-wrap" id="tableWrap" style="display:none">
+        <table class="sector-table" id="sectorTable">
+          <thead>
+            <tr>
+              <th>업종명</th>
+              <th class="num">종목 수</th>
+              <th class="num">평균 PER</th>
+              <th class="num">평균 PBR</th>
+              <th class="num">평균 RSI</th>
+            </tr>
+          </thead>
+          <tbody id="sectorBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyEl" style="display:none" class="loading">
+        <div style="font-size:32px;margin-bottom:8px">🏭</div>
+        업종 데이터가 없습니다. 배치를 먼저 실행하세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 업종 종목 팝업 -->
+  <div class="popup-overlay" id="sectorPopup">
+    <div class="popup-box">
+      <div class="popup-header">
+        <div>
+          <div class="popup-title" id="popupTitle">-</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px" id="popupSubtitle"></div>
+        </div>
+        <button class="popup-close" id="popupClose">✕</button>
+      </div>
+      <div class="popup-body">
+        <div class="loading" id="popupLoading"><div class="spinner"></div>종목 불러오는 중...</div>
+        <div class="table-wrap" id="popupTableWrap" style="display:none">
+          <table id="popupTable">
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>종목코드</th>
+                <th>종목명</th>
+                <th class="num">시가총액(억)</th>
+                <th class="num">PER</th>
+                <th class="num">PBR</th>
+                <th class="num">RSI</th>
+                <th>시장</th>
+              </tr>
+            </thead>
+            <tbody id="popupBody"></tbody>
+          </table>
+        </div>
+        <div id="popupEmpty" style="display:none" class="loading">
+          <div style="font-size:28px;margin-bottom:8px">📭</div>
+          종목 데이터 없음
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirect */ }
+    document.getElementById('navUser').textContent = getNickname() + '님';
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      clearAuth(); location.href = '/login.html';
+    });
+
+    function fmtPer(v) {
+      if (v == null) return '<span style="color:var(--text-muted)">-</span>';
+      return v.toFixed(2);
+    }
+    function fmtPbr(v) {
+      if (v == null) return '<span style="color:var(--text-muted)">-</span>';
+      return v.toFixed(2);
+    }
+    function fmtRsiCell(v) {
+      if (v == null) return '<span style="color:var(--text-muted)">-</span>';
+      const n = v.toFixed(1);
+      if (v >= 70) return `<span class="rsi-badge rsi-high">${n}</span>`;
+      if (v <= 30) return `<span class="rsi-badge rsi-low">${n}</span>`;
+      return `<span class="rsi-badge rsi-mid">${n}</span>`;
+    }
+    function fmtMktCap(v) {
+      if (v == null) return '-';
+      if (v >= 10000) return (v / 10000).toFixed(1) + '조';
+      return Math.round(v).toLocaleString('ko-KR') + '억';
+    }
+
+    async function loadSectorStats() {
+      try {
+        const data = await getSectorStats();
+        const stats = data.stats || [];
+        document.getElementById('loadingEl').style.display = 'none';
+
+        if (!stats.length) {
+          document.getElementById('emptyEl').style.display = 'block';
+          return;
+        }
+
+        if (stats[0].trade_date) {
+          document.getElementById('pageSubtitle').textContent =
+            `${stats[0].trade_date} 기준 업종 평균 지표 (총 ${stats.length}개 업종)`;
+        }
+
+        const tbody = document.getElementById('sectorBody');
+        tbody.innerHTML = stats.map(s => `
+          <tr>
+            <td class="sector-name" onclick="openSectorPopup('${s.sector.replace(/'/g,"\\'")}', ${s.stock_count})">${s.sector}</td>
+            <td class="num">${s.stock_count.toLocaleString('ko-KR')}</td>
+            <td class="num">${fmtPer(s.avg_per)}</td>
+            <td class="num">${fmtPbr(s.avg_pbr)}</td>
+            <td class="num">${fmtRsiCell(s.avg_rsi)}</td>
+          </tr>`).join('');
+
+        document.getElementById('tableWrap').style.display = 'block';
+      } catch (e) {
+        document.getElementById('loadingEl').innerHTML =
+          `<div style="color:var(--red)">불러오지 못했습니다: ${e.message}</div>`;
+      }
+    }
+
+    // ── 업종 팝업 ──────────────────────────────────────────────────
+    const popup = document.getElementById('sectorPopup');
+
+    function closePopup() { popup.classList.remove('open'); }
+    document.getElementById('popupClose').addEventListener('click', closePopup);
+    popup.addEventListener('click', e => { if (e.target === popup) closePopup(); });
+
+    async function openSectorPopup(sector, count) {
+      document.getElementById('popupTitle').textContent = `🏭 ${sector}`;
+      document.getElementById('popupSubtitle').textContent = `총 ${count}개 종목 · 시가총액 순`;
+      document.getElementById('popupLoading').style.display = 'flex';
+      document.getElementById('popupTableWrap').style.display = 'none';
+      document.getElementById('popupEmpty').style.display = 'none';
+      document.getElementById('popupBody').innerHTML = '';
+      popup.classList.add('open');
+
+      try {
+        const data = await getSectorStocks(sector);
+        const stocks = data.stocks || [];
+        document.getElementById('popupLoading').style.display = 'none';
+        document.getElementById('popupSubtitle').textContent =
+          `${stocks.length}개 종목 · 시가총액 순`;
+
+        if (!stocks.length) {
+          document.getElementById('popupEmpty').style.display = 'block';
+          return;
+        }
+
+        document.getElementById('popupBody').innerHTML = stocks.map((s, i) => `
+          <tr>
+            <td style="color:var(--text2);font-size:12px">${i + 1}</td>
+            <td class="ticker-cell">${s.ticker}</td>
+            <td class="name-cell">${s.name || '-'}</td>
+            <td class="num">
+              ${s.market_cap_eok
+                ? `<span class="mktcap-badge">${fmtMktCap(s.market_cap_eok)}</span>`
+                : '<span style="color:var(--text-muted)">-</span>'}
+            </td>
+            <td class="num">${fmtPer(s.per)}</td>
+            <td class="num">${fmtPbr(s.pbr)}</td>
+            <td class="num">${fmtRsiCell(s.rsi14)}</td>
+            <td style="font-size:11px;color:var(--text2)">${s.market || ''}</td>
+          </tr>`).join('');
+
+        document.getElementById('popupTableWrap').style.display = 'block';
+      } catch (e) {
+        document.getElementById('popupLoading').innerHTML =
+          `<div style="color:var(--red)">불러오지 못했습니다: ${e.message}</div>`;
+      }
+    }
+
+    loadSectorStats();
+  </script>
+</body>
+</html>

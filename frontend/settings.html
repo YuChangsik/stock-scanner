@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>조건설정 — 댕댕투자</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <style>
+    /* ── 전략 그룹 카드 ── */
+    .strategy-section { margin-bottom: 28px; }
+    .strategy-section-title {
+      font-size: 14px; font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .strategy-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .strategy-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .strategy-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .strategy-card:hover::before { opacity: 1; }
+    .strategy-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .strategy-card.selected::before { opacity: 1; }
+
+    .strategy-icon  { font-size: 24px; margin-bottom: 8px; }
+    .strategy-name  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .strategy-desc  { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+    .strategy-tags  { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+    .strategy-tag   {
+      font-size: 10px; padding: 2px 7px; border-radius: 10px;
+      background: rgba(var(--accent-rgb, 59,130,246),.12);
+      color: var(--accent);
+    }
+
+    .strategy-apply-btn {
+      display: none;
+      margin-top: 12px;
+      width: 100%;
+    }
+    .strategy-card.selected .strategy-apply-btn { display: block; }
+
+    /* 구분선 */
+    .section-divider {
+      height: 1px; background: var(--border);
+      margin: 24px 0;
+    }
+    .section-label {
+      font-size: 14px; font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-label .badge-count {
+      background: var(--accent); color: #fff;
+      border-radius: 20px; font-size: 11px;
+      padding: 1px 8px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="/main.html">🐶 <span>댕댕투자</span></a>
+    <div class="navbar-nav">
+      <span class="nav-user" id="navUser"></span>
+      <a class="nav-link" href="/main.html">홈</a>
+      <a class="nav-link active" href="/settings.html">⚙️ 조건설정</a>
+      <a class="nav-link" href="/sector.html">🏭 업종현황</a>
+      <a class="nav-link" href="/research.html">📰 리서치</a>
+      <a class="nav-link" href="/notify.html">🔔 알림설정</a>
+      <a class="nav-link" href="/admin.html">🛠 배치관리</a>
+      <button class="btn btn-outline btn-sm" id="logoutBtn">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <div class="page-title">커스텀 조건 설정</div>
+        <div class="page-subtitle">활성화된 조건을 모두 만족하는 종목을 검색합니다 (AND 조건)</div>
+      </div>
+    </div>
+
+    <div class="alert alert-success" id="okMsg"></div>
+    <div class="alert alert-error"   id="errMsg"></div>
+
+    <!-- 화면 표시 설정 -->
+    <div class="condition-card active" style="margin-bottom:12px">
+      <div class="toggle-wrap" style="visibility:hidden">
+        <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
+      </div>
+      <div class="condition-info">
+        <div class="condition-name">🔢 결과 표시 수</div>
+        <div class="condition-desc">홈 화면 조건검색 결과를 최대 몇 개까지 표시할지 설정합니다.</div>
+        <div class="condition-params" style="margin-top:12px">
+          <div class="param-group">
+            <span class="param-label">표시 개수</span>
+            <select class="param-input" id="displayCountSelect">
+              <option value="10">10개</option>
+              <option value="20">20개</option>
+              <option value="30">30개</option>
+              <option value="50">50개</option>
+              <option value="100">100개</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 전략 그룹 프리셋 ───────────────────────── -->
+    <div class="strategy-section">
+      <div class="section-label">⚡ 전략 그룹 프리셋 <span style="font-size:12px;color:var(--text-secondary);font-weight:400">— 클릭하면 해당 전략의 조건들을 자동으로 적용합니다</span></div>
+      <div class="strategy-grid" id="strategyGrid"></div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ── 개별 조건 설정 ─────────────────────────── -->
+    <div class="section-label">
+      🎯 개별 조건 설정
+      <span class="badge-count" id="activeCount">0</span>
+    </div>
+    <div class="settings-grid" id="settingsGrid"></div>
+
+    <div class="save-bar">
+      <button class="btn btn-outline" id="resetBtn">초기화</button>
+      <button class="btn btn-primary" id="saveBtn">💾 저장</button>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!requireAuth()) {}
+    document.getElementById('navUser').textContent = getNickname() + '님';
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      clearAuth(); location.href = '/login.html';
+    });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 전략 그룹 정의
+    // ────────────────────────────────────────────────────────────────────────
+    const STRATEGY_GROUPS = [
+      {
+        id: 'trend_follow',
+        icon: '📈',
+        name: '추세추종형',
+        desc: '이동평균 정배열과 모멘텀 지표로 강한 상승 추세를 추종합니다.',
+        tags: ['정배열', 'MACD', 'RSI', '거래량급증', 'ATR'],
+        conditions: [
+          { name: 'ma_alignment',  params: { type: 'bull', require_ma60: true, require_ma120: true } },
+          { name: 'macd',          params: {} },
+          { name: 'rsi14',         params: { operator: '>', threshold: 50 } },
+          { name: 'volume_surge',  params: { multiplier: 1.5 } },
+          { name: 'atr',           params: { operator: '>', threshold: 500 } },
+        ],
+      },
+      {
+        id: 'pullback',
+        icon: '🎯',
+        name: '눌림목 매매형',
+        desc: '상승 추세 중 단기 조정 구간에서 매수 타이밍을 포착합니다.',
+        tags: ['MA20위', '볼린저하단근접', 'OBV상승', '거래량회복'],
+        conditions: [
+          { name: 'ma_above',         params: { period: 20 } },
+          { name: 'bollinger_band',   params: { position: 'near_lower', near_pct: 5 } },
+          { name: 'rsi14',            params: { operator: '<', threshold: 45 } },
+          { name: 'volume_recovery',  params: { min_down_days: 2, up_ratio: 1.3 } },
+          { name: 'obv_rising',       params: { lookback_days: 5 } },
+        ],
+      },
+      {
+        id: 'momentum',
+        icon: '🚀',
+        name: '단타/급등주 포착형',
+        desc: '거래량 급증과 모멘텀 신호로 단기 급등 종목을 빠르게 포착합니다.',
+        tags: ['거래량급증', '전고점돌파', 'MACD히스토그램', 'RSI'],
+        conditions: [
+          { name: 'volume_surge',    params: { multiplier: 3.0 } },
+          { name: 'prev_high_breakout', params: {} },
+          { name: 'macd_histogram',  params: { signal: 'expanding_bull' } },
+          { name: 'rsi14',           params: { operator: '>', threshold: 55 } },
+          { name: 'volume_rank',     params: { threshold: 50 } },
+        ],
+      },
+      {
+        id: 'value_tech',
+        icon: '💎',
+        name: '가치+기술 혼합형',
+        desc: '저평가 가치주에 기술적 반등 신호가 겹친 종목을 선별합니다.',
+        tags: ['저PER', '저PBR', 'MA120위', 'MACD골든크로스'],
+        conditions: [
+          { name: 'per',      params: { operator: '<', threshold: 15 } },
+          { name: 'pbr',      params: { operator: '<', threshold: 1.5 } },
+          { name: 'ma_above', params: { period: 120 } },
+          { name: 'macd',     params: {} },
+        ],
+      },
+      {
+        id: 'quant',
+        icon: '🤖',
+        name: 'AI/퀀트 혼합형',
+        desc: '다중 기술적 지표를 종합해 퀀트 신호를 포착하는 복합 전략입니다.',
+        tags: ['정배열', 'RSI', 'MACD히스토그램', '볼린저', 'ATR', 'OBV', '거래량급증'],
+        conditions: [
+          { name: 'ma_alignment',   params: { type: 'bull', require_ma60: true, require_ma120: false } },
+          { name: 'rsi14',          params: { operator: '>', threshold: 45 } },
+          { name: 'macd_histogram', params: { signal: 'expanding_bull' } },
+          { name: 'bollinger_band', params: { position: 'above_mid' } },
+          { name: 'atr',            params: { use_ratio: true, ratio_threshold: 2.0 } },
+          { name: 'obv_rising',     params: { lookback_days: 3 } },
+          { name: 'volume_surge',   params: { multiplier: 1.5 } },
+        ],
+      },
+    ];
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 조건 정의
+    // ────────────────────────────────────────────────────────────────────────
+    const CONDITION_DEFS = [
+      // ── 기존 조건 ──────────────────────────────────────────────────────────
+      {
+        name: 'volume_rank',
+        label: '거래량 순위',
+        icon: '📊',
+        group: 'basic',
+        desc: '당일 전종목 기준 거래량 순위 상위 N위 이내 종목만 선택합니다.',
+        params: [
+          { key: 'threshold', label: '상위 N위 이내', type: 'number', default: 20, min: 1, max: 2000 },
+        ],
+      },
+      {
+        name: 'rsi14',
+        label: 'RSI 14',
+        icon: '📉',
+        group: 'momentum',
+        desc: 'RSI(14) 기준 과매도/과매수 구간 종목을 필터링합니다.',
+        params: [
+          {
+            key: 'operator', label: '비교 연산자', type: 'select', default: '<',
+            options: [
+              { value: '<',  label: '< (미만 · 과매도)' },
+              { value: '<=', label: '<= (이하)' },
+              { value: '>',  label: '> (초과 · 과매수)' },
+              { value: '>=', label: '>= (이상)' },
+            ],
+          },
+          { key: 'threshold', label: 'RSI 기준값', type: 'number', default: 40, min: 1, max: 99 },
+        ],
+      },
+      {
+        name: 'golden_cross',
+        label: '골든크로스 (MA5 ↑ MA20)',
+        icon: '✨',
+        group: 'trend',
+        desc: 'MA5가 MA20을 상향 돌파한 종목을 찾습니다. 최근 N 거래일 이내 발생한 골든크로스를 허용합니다.',
+        params: [
+          { key: 'within_days', label: '최근 N 거래일 이내', type: 'number', default: 1, min: 1, max: 60 },
+        ],
+      },
+      {
+        name: 'macd',
+        label: 'MACD 골든크로스',
+        icon: '⚡',
+        group: 'momentum',
+        desc: 'MACD 선이 Signal 선을 상향 돌파한 종목입니다.',
+        params: [],
+      },
+      {
+        name: 'prev_high_breakout',
+        label: '전고점 돌파',
+        icon: '🚀',
+        group: 'trend',
+        desc: '오늘 종가가 이전 기간 중 최고가를 돌파한 종목입니다. 강한 상승 모멘텀 신호.',
+        params: [],
+      },
+      {
+        name: 'ma_above',
+        label: '기준선 위 (이동평균 돌파)',
+        icon: '📈',
+        group: 'trend',
+        desc: '현재 종가가 N일 이동평균선 위에 있는 종목입니다.',
+        params: [
+          {
+            key: 'period', label: '기준선 (일)', type: 'select', default: 60,
+            options: [
+              { value: 5,   label: '5일선 (MA5)' },
+              { value: 20,  label: '20일선 (MA20)' },
+              { value: 60,  label: '60일선 (MA60)' },
+              { value: 120, label: '120일선 (MA120)' },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'per',
+        label: 'PER (주가수익비율)',
+        icon: '💰',
+        group: 'value',
+        desc: 'PER 기준으로 저평가/고평가 종목을 필터링합니다.',
+        params: [
+          {
+            key: 'operator', label: '비교 연산자', type: 'select', default: '<',
+            options: [
+              { value: '<',  label: '< (미만 · 저PER)' },
+              { value: '<=', label: '<= (이하)' },
+              { value: '>',  label: '> (초과 · 고PER)' },
+              { value: '>=', label: '>= (이상)' },
+            ],
+          },
+          { key: 'threshold', label: 'PER 기준값', type: 'number', default: 15, min: 0.1, max: 999 },
+        ],
+      },
+      {
+        name: 'pbr',
+        label: 'PBR (주가순자산비율)',
+        icon: '🏦',
+        group: 'value',
+        desc: 'PBR 기준으로 저평가/고평가 종목을 필터링합니다. PBR < 1이면 순자산 이하 거래.',
+        params: [
+          {
+            key: 'operator', label: '비교 연산자', type: 'select', default: '<',
+            options: [
+              { value: '<',  label: '< (미만 · 저PBR)' },
+              { value: '<=', label: '<= (이하)' },
+              { value: '>',  label: '> (초과 · 고PBR)' },
+              { value: '>=', label: '>= (이상)' },
+            ],
+          },
+          { key: 'threshold', label: 'PBR 기준값', type: 'number', default: 1.0, min: 0.01, max: 99 },
+        ],
+      },
+      {
+        name: 'sector',
+        label: '업종 필터',
+        icon: '🏭',
+        group: 'basic',
+        desc: '선택한 업종에 속하는 종목만 통과합니다. 여러 업종 선택 시 OR 조건.',
+        params: [
+          { key: 'sectors', label: '업종 선택', type: 'sectors', default: [] },
+        ],
+      },
+
+      // ── 신규 조건 ──────────────────────────────────────────────────────────
+      {
+        name: 'ma_alignment',
+        label: '이동평균 배열 상태',
+        icon: '🔢',
+        group: 'trend',
+        desc: '이동평균선의 정배열(MA5>MA20>MA60>MA120) 또는 역배열 상태를 확인합니다.',
+        params: [
+          {
+            key: 'type', label: '배열 방향', type: 'select', default: 'bull',
+            options: [
+              { value: 'bull', label: '정배열 (상승 추세)' },
+              { value: 'bear', label: '역배열 (하락 추세)' },
+            ],
+          },
+          {
+            key: 'require_ma60', label: 'MA60 포함', type: 'select', default: true,
+            options: [
+              { value: true,  label: '포함 (MA60 비교)' },
+              { value: false, label: '제외 (MA5/MA20만)' },
+            ],
+          },
+          {
+            key: 'require_ma120', label: 'MA120 포함', type: 'select', default: true,
+            options: [
+              { value: true,  label: '포함 (MA120 비교)' },
+              { value: false, label: '제외' },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'volume_surge',
+        label: '거래량 급증',
+        icon: '💥',
+        group: 'volume',
+        desc: '오늘 거래량이 20일 평균 거래량의 N배 이상인 종목을 선별합니다.',
+        params: [
+          { key: 'multiplier', label: '급증 배율 (평균 대비)', type: 'number', default: 2.0, min: 0.5, max: 20 },
+        ],
+      },
+      {
+        name: 'atr',
+        label: 'ATR 변동성 조건',
+        icon: '📊',
+        group: 'volatility',
+        desc: 'ATR(14일)로 종목의 변동성 크기를 필터링합니다. 절댓값 또는 종가 대비 비율로 설정할 수 있습니다.',
+        params: [
+          {
+            key: 'use_ratio', label: '비율 모드', type: 'select', default: false,
+            options: [
+              { value: false, label: '절댓값 (원)' },
+              { value: true,  label: '종가 대비 비율 (%)' },
+            ],
+          },
+          {
+            key: 'operator', label: '비교 연산자', type: 'select', default: '>',
+            options: [
+              { value: '>',  label: '> 초과' },
+              { value: '>=', label: '>= 이상' },
+              { value: '<',  label: '< 미만' },
+              { value: '<=', label: '<= 이하' },
+            ],
+          },
+          { key: 'threshold',       label: '기준값 (원)',    type: 'number', default: 500,  min: 0 },
+          { key: 'ratio_threshold', label: '비율 기준 (%)', type: 'number', default: 3.0,  min: 0, max: 100 },
+        ],
+      },
+      {
+        name: 'bollinger_band',
+        label: '볼린저밴드 위치',
+        icon: '📡',
+        group: 'volatility',
+        desc: '볼린저밴드(20일, 2σ) 내에서 종가의 위치를 기준으로 필터링합니다.',
+        params: [
+          {
+            key: 'position', label: '위치 조건', type: 'select', default: 'above_mid',
+            options: [
+              { value: 'above_mid',    label: '중단선 위 (상승 국면)' },
+              { value: 'below_mid',    label: '중단선 아래 (하락 국면)' },
+              { value: 'near_lower',   label: '하단선 근접 (눌림목)' },
+              { value: 'near_upper',   label: '상단선 근접 (돌파 직전)' },
+              { value: 'below_lower',  label: '하단선 이탈 (과매도)' },
+              { value: 'above_upper',  label: '상단선 돌파 (과매수)' },
+            ],
+          },
+          { key: 'near_pct', label: '근접 허용 범위 (%)', type: 'number', default: 2.0, min: 0.1, max: 20 },
+        ],
+      },
+      {
+        name: 'volume_recovery',
+        label: '거래량 감소 후 재증가',
+        icon: '🔄',
+        group: 'volume',
+        desc: 'N일 이상 거래량이 감소하다가 오늘 반등한 눌림목 매수 신호입니다.',
+        params: [
+          { key: 'min_down_days', label: '최소 감소 일수', type: 'number', default: 2, min: 1, max: 10 },
+          { key: 'up_ratio',      label: '재증가 배율',   type: 'number', default: 1.3, min: 1.0, max: 5 },
+          { key: 'lookback',      label: '과거 조회 일수', type: 'number', default: 5, min: 2, max: 20 },
+        ],
+      },
+      {
+        name: 'obv_rising',
+        label: 'OBV 상승 (매집 신호)',
+        icon: '📦',
+        group: 'volume',
+        desc: 'OBV(On-Balance Volume)가 N일 전 대비 상승 중인 종목입니다. 세력의 매집 패턴을 탐지합니다.',
+        params: [
+          { key: 'lookback_days', label: '비교 기준 일수', type: 'number', default: 5, min: 1, max: 20 },
+        ],
+      },
+      {
+        name: 'macd_histogram',
+        label: 'MACD 히스토그램',
+        icon: '📶',
+        group: 'momentum',
+        desc: 'MACD 히스토그램(MACD - Signal)의 방향과 크기로 모멘텀을 판별합니다.',
+        params: [
+          {
+            key: 'signal', label: '신호 조건', type: 'select', default: 'expanding_bull',
+            options: [
+              { value: 'expanding_bull', label: '양수 확장 (모멘텀 강화)' },
+              { value: 'turning_bull',   label: '음→양 전환 (상승 반전)' },
+              { value: 'positive',       label: '양수 (MACD > Signal)' },
+              { value: 'negative',       label: '음수 (MACD < Signal)' },
+              { value: 'expanding_bear', label: '음수 확장 (하락 가속)' },
+              { value: 'turning_bear',   label: '양→음 전환 (하락 반전)' },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const DEFAULT_CONDITIONS = [
+      { name: 'volume_rank', params: { threshold: 20 } },
+      { name: 'rsi14', params: { operator: '<', threshold: 40 } },
+    ];
+
+    let userConditions = [];
+    let allSectors = [];
+    let selectedStrategy = null;
+
+    // ── 전략 그룹 렌더 ──────────────────────────────────────────────────────
+    function renderStrategies() {
+      const grid = document.getElementById('strategyGrid');
+      grid.innerHTML = STRATEGY_GROUPS.map(sg => `
+        <div class="strategy-card ${selectedStrategy === sg.id ? 'selected' : ''}"
+             id="strategy-${sg.id}" onclick="selectStrategy('${sg.id}')">
+          <div class="strategy-icon">${sg.icon}</div>
+          <div class="strategy-name">${sg.name}</div>
+          <div class="strategy-desc">${sg.desc}</div>
+          <div class="strategy-tags">${sg.tags.map(t => `<span class="strategy-tag">${t}</span>`).join('')}</div>
+          <button class="btn btn-primary btn-sm strategy-apply-btn"
+                  onclick="event.stopPropagation(); applyStrategy('${sg.id}')">
+            이 전략 적용
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function selectStrategy(id) {
+      selectedStrategy = selectedStrategy === id ? null : id;
+      renderStrategies();
+    }
+
+    function applyStrategy(id) {
+      const sg = STRATEGY_GROUPS.find(s => s.id === id);
+      if (!sg) return;
+      if (!confirm(`"${sg.name}" 전략을 적용하면 현재 조건이 초기화됩니다. 계속하시겠습니까?`)) return;
+
+      userConditions = sg.conditions.map(c => ({
+        name: c.name,
+        params: { ...(c.params || {}) },
+      }));
+      selectedStrategy = null;
+      renderStrategies();
+      render();
+      document.getElementById('okMsg').textContent = `✅ "${sg.name}" 전략이 적용되었습니다. 저장 버튼으로 확정하세요.`;
+      document.getElementById('okMsg').style.display = 'block';
+      setTimeout(() => { document.getElementById('okMsg').style.display = 'none'; }, 3000);
+    }
+
+    // ── 개별 조건 렌더 ──────────────────────────────────────────────────────
+    function isActive(name) { return userConditions.some(c => c.name === name); }
+    function getParams(name) {
+      const f = userConditions.find(c => c.name === name);
+      return f ? f.params : {};
+    }
+
+    function updateActiveCount() {
+      document.getElementById('activeCount').textContent = userConditions.length;
+    }
+
+    function renderSectorPicker(condName, selected) {
+      if (!allSectors.length) {
+        return `<div class="param-group"><span class="param-label" style="color:var(--text-muted)">업종 데이터 없음 (배치 후 사용 가능)</span></div>`;
+      }
+      const tags = allSectors.map(s => {
+        const on = selected.includes(s);
+        return `<button type="button" class="sector-tag ${on ? 'on' : ''}" data-cond="${condName}" data-sector="${s}">${s}</button>`;
+      }).join('');
+      return `<div class="param-group">
+        <span class="param-label">업종 선택 <span class="param-hint">(여러 개 선택 가능 · OR)</span></span>
+        <div class="sector-picker" id="sector-picker-${condName}">${tags}</div>
+      </div>`;
+    }
+
+    function render() {
+      const grid = document.getElementById('settingsGrid');
+      grid.innerHTML = CONDITION_DEFS.map(def => {
+        const active = isActive(def.name);
+        const params = getParams(def.name);
+
+        const paramHtml = def.params.map(p => {
+          const rawVal = params[p.key];
+          const val = rawVal !== undefined ? rawVal : p.default;
+
+          if (p.type === 'sectors') {
+            return renderSectorPicker(def.name, Array.isArray(val) ? val : []);
+          }
+          if (p.type === 'select') {
+            const opts = p.options.map(o => {
+              // 불리언 비교 처리
+              const isSelected = String(o.value) === String(val);
+              return `<option value="${o.value}" ${isSelected ? 'selected' : ''}>${o.label}</option>`;
+            }).join('');
+            return `<div class="param-group">
+              <span class="param-label">${p.label}</span>
+              <select class="param-input" data-cond="${def.name}" data-param="${p.key}">${opts}</select>
+            </div>`;
+          }
+          return `<div class="param-group">
+            <span class="param-label">${p.label}</span>
+            <input class="param-input" type="${p.type}" data-cond="${def.name}" data-param="${p.key}"
+              value="${val}" min="${p.min ?? ''}" max="${p.max ?? ''}" step="${p.type === 'number' && String(p.default).includes('.') ? '0.1' : '1'}">
+          </div>`;
+        }).join('');
+
+        const badge = def.comingSoon
+          ? '<span class="badge badge-blue" style="margin-left:8px;font-size:11px">준비중</span>'
+          : '';
+
+        return `<div class="condition-card ${active ? 'active' : ''}" id="card-${def.name}">
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" data-cond="${def.name}" ${active ? 'checked' : ''} ${def.comingSoon ? 'disabled' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="condition-info">
+            <div class="condition-name">${def.icon} ${def.label}${badge}</div>
+            <div class="condition-desc">${def.desc}</div>
+            ${def.params.length ? `<div class="condition-params" id="params-${def.name}"
+              style="${active ? '' : 'opacity:.4;pointer-events:none'}">${paramHtml}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      // 토글 이벤트
+      grid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const name = cb.dataset.cond;
+          const card = document.getElementById('card-' + name);
+          const paramsEl = document.getElementById('params-' + name);
+          if (cb.checked) {
+            card.classList.add('active');
+            if (paramsEl) { paramsEl.style.opacity = '1'; paramsEl.style.pointerEvents = 'auto'; }
+            const def = CONDITION_DEFS.find(d => d.name === name);
+            const defaultParams = {};
+            def.params.forEach(p => { defaultParams[p.key] = p.default; });
+            if (!userConditions.find(c => c.name === name)) {
+              userConditions.push({ name, params: defaultParams });
+            }
+          } else {
+            card.classList.remove('active');
+            if (paramsEl) { paramsEl.style.opacity = '.4'; paramsEl.style.pointerEvents = 'none'; }
+            userConditions = userConditions.filter(c => c.name !== name);
+          }
+          updateActiveCount();
+        });
+      });
+
+      // 파라미터 변경 이벤트
+      grid.querySelectorAll('[data-param]').forEach(el => {
+        el.addEventListener('change', () => {
+          const cond = userConditions.find(c => c.name === el.dataset.cond);
+          if (cond) {
+            let val = el.value;
+            if (el.type === 'number') val = Number(val);
+            else if (val === 'true')  val = true;
+            else if (val === 'false') val = false;
+            cond.params[el.dataset.param] = val;
+          }
+        });
+      });
+
+      // 업종 태그 토글
+      grid.querySelectorAll('.sector-tag').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('on');
+          const condName = btn.dataset.cond;
+          const cond = userConditions.find(c => c.name === condName);
+          if (cond) {
+            cond.params.sectors = Array.from(
+              document.querySelectorAll(`.sector-tag[data-cond="${condName}"].on`)
+            ).map(b => b.dataset.sector);
+          }
+        });
+      });
+
+      updateActiveCount();
+    }
+
+    async function init() {
+      const [me, sectorsResp] = await Promise.all([getMe(), getSectors().catch(() => ({ sectors: [] }))]);
+      allSectors = sectorsResp.sectors || [];
+      userConditions = me.scan_conditions ? JSON.parse(JSON.stringify(me.scan_conditions)) : [...DEFAULT_CONDITIONS];
+      renderStrategies();
+      render();
+
+      const saved = getDisplayCount();
+      const sel = document.getElementById('displayCountSelect');
+      const found = Array.from(sel.options).find(o => parseInt(o.value) === saved);
+      sel.value = found ? String(saved) : '20';
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('saveBtn');
+      const ok  = document.getElementById('okMsg');
+      const err = document.getElementById('errMsg');
+      ok.style.display = 'none'; err.style.display = 'none';
+      btn.disabled = true; btn.textContent = '저장 중...';
+
+      setDisplayCount(parseInt(document.getElementById('displayCountSelect').value, 10));
+
+      try {
+        await updateConditions(userConditions);
+        ok.textContent = '✅ 저장되었습니다.';
+        ok.style.display = 'block';
+        setTimeout(() => { location.href = '/main.html'; }, 1000);
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = '💾 저장';
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      userConditions = JSON.parse(JSON.stringify(DEFAULT_CONDITIONS));
+      selectedStrategy = null;
+      renderStrategies();
+      render();
+      document.getElementById('displayCountSelect').value = '20';
+    });
+
+    init();
+  </script>
+</body>
+</html>

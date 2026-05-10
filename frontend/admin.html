@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>배치 관리 — 댕댕투자</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <style>
+    /* ── Admin-specific styles ── */
+    .admin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .admin-card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 20px;
+    }
+
+    /* Date + trigger row */
+    .trigger-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .date-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .date-input:focus { border-color: var(--accent); }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .status-idle    { background: rgba(99,110,123,.18); color: #8b98a5; }
+    .status-running { background: rgba(59,130,246,.18); color: #60a5fa; }
+    .status-success { background: rgba(16,185,129,.18); color: #34d399; }
+    .status-failed  { background: rgba(239,68,68,.18);  color: #f87171; }
+
+    .pulse {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 16px 0 4px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width .4s ease;
+    }
+
+    /* Log console */
+    .log-console {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 16px;
+      max-height: 340px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .log-console::-webkit-scrollbar { width: 4px; }
+    .log-console::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .log-line { display: flex; gap: 10px; }
+    .log-time { color: #8b949e; flex-shrink: 0; }
+    .log-msg  { color: #e6edf3; }
+    .log-msg.step  { color: #79c0ff; }
+    .log-msg.done  { color: #56d364; }
+    .log-msg.error { color: #f85149; }
+    .log-msg.warn  { color: #d29922; }
+
+    .log-empty { color: #8b949e; font-style: italic; }
+
+    /* Info row (trade date + timing) */
+    .meta-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .meta-item { font-size: 13px; color: var(--text-secondary); }
+    .meta-item span { color: var(--text-primary); font-weight: 500; }
+
+    /* ── 데이터 현황 카드 ── */
+    .data-cal-wrap {
+      display: none;
+      margin-top: 20px;
+    }
+    .data-cal-wrap.open { display: block; }
+
+    .cal-months { display: flex; flex-wrap: wrap; gap: 24px; }
+
+    .cal-month {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-width: 240px;
+      flex: 1;
+    }
+    .cal-month-title {
+      font-size: 14px; font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+    }
+    .cal-dow {
+      font-size: 10px; font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 3px 0;
+    }
+    .cal-dow:first-child { color: #f87171; }   /* 일 */
+    .cal-dow:last-child  { color: #60a5fa; }   /* 토 */
+
+    .cal-cell {
+      aspect-ratio: 1;
+      border-radius: 5px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 11px;
+      cursor: default;
+      transition: transform .1s;
+    }
+    .cal-cell.empty { visibility: hidden; }
+    .cal-cell.weekend { color: var(--text-secondary); opacity: .55; }
+    .cal-cell.no-data {
+      background: rgba(99,110,123,.1);
+      color: var(--text-secondary);
+    }
+    .cal-cell.has-price {
+      background: rgba(59,130,246,.15);
+      color: #60a5fa;
+    }
+    .cal-cell.has-both {
+      background: rgba(16,185,129,.18);
+      color: #34d399;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .cal-cell.has-both:hover { transform: scale(1.12); }
+    .cal-cell.has-price-only {
+      background: rgba(245,158,11,.15);
+      color: #fbbf24;
+    }
+    .cal-cnt { font-size: 9px; opacity: .75; margin-top: 1px; }
+
+    /* 범례 */
+    .cal-legend {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-top: 14px; font-size: 12px; color: var(--text-secondary);
+    }
+    .cal-legend-item { display: flex; align-items: center; gap: 5px; }
+    .cal-legend-dot {
+      width: 12px; height: 12px; border-radius: 3px;
+    }
+
+    /* 요약 stat */
+    .data-stat-row {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .data-stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+    }
+    .data-stat b { font-size: 18px; font-weight: 700; display: block; margin-bottom: 2px; }
+    .data-stat b.green { color: #34d399; }
+    .data-stat b.blue  { color: #60a5fa; }
+    .data-stat b.amber { color: #fbbf24; }
+
+    /* 월 범위 선택 */
+    .cal-range-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+    .cal-range-btn { min-width: 52px; }
+    .cal-range-btn.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="/main.html">🐶 <span>댕댕투자</span></a>
+    <div class="navbar-nav">
+      <span class="nav-user" id="navUser"></span>
+      <a class="nav-link" href="/main.html">홈</a>
+      <a class="nav-link" href="/settings.html">⚙️ 조건설정</a>
+      <a class="nav-link" href="/sector.html">🏭 업종현황</a>
+      <a class="nav-link" href="/research.html">📰 리서치</a>
+      <a class="nav-link" href="/notify.html">🔔 알림설정</a>
+      <a class="nav-link active" href="/admin.html">🛠 배치관리</a>
+      <button class="btn btn-outline btn-sm" id="logoutBtn">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <div class="page-title">배치 관리</div>
+        <div class="page-subtitle">수동 배치 실행 및 실시간 진행 상황 모니터링</div>
+      </div>
+    </div>
+
+    <!-- Trigger card -->
+    <div class="admin-card">
+      <h2>📅 배치 실행</h2>
+
+      <!-- 단일 날짜 -->
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px;font-weight:500">단일 날짜</div>
+      <div class="trigger-row" style="margin-bottom:20px">
+        <input type="date" class="date-input" id="batchDate" />
+        <button class="btn btn-primary" id="runBtn">▶ 배치 실행</button>
+        <button class="btn btn-outline" id="refreshBtn">↻ 상태 새로고침</button>
+      </div>
+
+      <!-- 기간 배치 -->
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px;font-weight:500">기간 수집 <span style="font-size:11px;color:var(--text-muted)">(가격 수집 + 지표 계산만 실행, 스캔 제외)</span></div>
+      <div class="trigger-row">
+        <input type="date" class="date-input" id="rangeStart" />
+        <span style="color:var(--text2);font-size:14px">~</span>
+        <input type="date" class="date-input" id="rangeEnd" />
+        <button class="btn btn-primary" id="runRangeBtn">▶ 기간 배치 실행</button>
+        <span id="rangeDaysLabel" style="font-size:13px;color:var(--text2)"></span>
+      </div>
+
+      <div class="meta-row">
+        <div class="meta-item">기준 거래일: <span id="metaDate">—</span></div>
+        <div class="meta-item">시작: <span id="metaStart">—</span></div>
+        <div class="meta-item">완료: <span id="metaFinish">—</span></div>
+      </div>
+    </div>
+
+    <!-- Status card -->
+    <div class="admin-card">
+      <h2>📊 실행 상태</h2>
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+        <div class="status-badge status-idle" id="statusBadge">
+          <div class="pulse" id="statusPulse" style="display:none"></div>
+          <span id="statusText">대기 중</span>
+        </div>
+        <div id="alertMsg" class="alert" style="display:none; margin:0; flex:1"></div>
+      </div>
+      <div class="progress-wrap" id="progressWrap" style="display:none">
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Log card -->
+    <div class="admin-card">
+      <h2>🖥 실행 로그</h2>
+      <div class="log-console" id="logConsole">
+        <div class="log-empty">배치를 실행하면 여기에 로그가 표시됩니다.</div>
+      </div>
+    </div>
+
+    <!-- 데이터 현황 카드 -->
+    <div class="admin-card">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+        <h2 style="margin:0">📂 데이터 현황</h2>
+        <button class="btn btn-outline" id="dataCheckBtn" onclick="toggleDataPanel()">
+          📋 데이터 유무 확인
+        </button>
+      </div>
+
+      <div class="data-cal-wrap" id="dataCalWrap">
+        <!-- 월 범위 선택 -->
+        <div class="cal-range-row" style="margin-top:18px">
+          <span style="font-size:13px;color:var(--text-secondary)">조회 범위:</span>
+          <button class="btn btn-outline btn-sm cal-range-btn" data-months="3" onclick="loadDataDates(3)">3개월</button>
+          <button class="btn btn-outline btn-sm cal-range-btn active" data-months="6" onclick="loadDataDates(6)">6개월</button>
+          <button class="btn btn-outline btn-sm cal-range-btn" data-months="12" onclick="loadDataDates(12)">12개월</button>
+          <span id="calLoadingMsg" style="font-size:13px;color:var(--text-secondary);display:none">⏳ 조회 중...</span>
+        </div>
+
+        <!-- 요약 -->
+        <div class="data-stat-row" id="dataStatRow"></div>
+
+        <!-- 달력 -->
+        <div class="cal-months" id="calMonths"></div>
+
+        <!-- 범례 -->
+        <div class="cal-legend">
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(16,185,129,.4)"></div> 가격 + 지표 완비
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(245,158,11,.3)"></div> 가격만 수집
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(99,110,123,.15)"></div> 데이터 없음 (거래일)
+          </div>
+        </div>
+
+        <!-- 툴팁용 상세 팝업 -->
+        <div id="dateDetailBox" style="
+          display:none; position:fixed; z-index:999;
+          background:var(--card-bg); border:1px solid var(--border);
+          border-radius:10px; padding:12px 16px; min-width:180px;
+          box-shadow:0 8px 24px rgba(0,0,0,.4); font-size:13px;
+          pointer-events:none;
+        "></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!requireAuth()) {}
+    document.getElementById('navUser').textContent = getNickname() + '님';
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      clearAuth(); location.href = '/login.html';
+    });
+
+    let pollTimer = null;
+    let stepProgress = 0; // 0–100 derived from log content
+
+    // ── Init: prefill dates ──────────────────────────────────────────────────
+    async function init() {
+      let latest = todayStr();
+      try {
+        const data = await getLatestTradingDay();
+        latest = data.trade_date;
+      } catch {}
+      document.getElementById('batchDate').value = latest;
+      document.getElementById('rangeEnd').value   = latest;
+      // 기간 기본값: 1주일 전 ~ 최근 거래일
+      const weekAgo = new Date(latest);
+      weekAgo.setDate(weekAgo.getDate() - 6);
+      document.getElementById('rangeStart').value = weekAgo.toISOString().slice(0, 10);
+      updateRangeDaysLabel();
+      await refreshStatus();
+    }
+
+    // 거래일 수 계산 (간이 — 주말만 제외, 공휴일 미반영)
+    function countWeekdays(start, end) {
+      let count = 0;
+      const s = new Date(start), e = new Date(end);
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+      }
+      return count;
+    }
+
+    function updateRangeDaysLabel() {
+      const s = document.getElementById('rangeStart').value;
+      const e = document.getElementById('rangeEnd').value;
+      const label = document.getElementById('rangeDaysLabel');
+      if (s && e && s <= e) {
+        const days = countWeekdays(s, e);
+        label.textContent = `약 ${days}거래일`;
+      } else {
+        label.textContent = '';
+      }
+    }
+    document.getElementById('rangeStart').addEventListener('change', updateRangeDaysLabel);
+    document.getElementById('rangeEnd').addEventListener('change', updateRangeDaysLabel);
+
+    // ── Status refresh ───────────────────────────────────────────────────────
+    async function refreshStatus() {
+      try {
+        const s = await getBatchStatus();
+        applyStatus(s);
+      } catch (e) {
+        showAlert('상태 조회 실패: ' + e.message, 'error');
+      }
+    }
+
+    function applyStatus(s) {
+      const badge   = document.getElementById('statusBadge');
+      const text    = document.getElementById('statusText');
+      const pulse   = document.getElementById('statusPulse');
+      const metaDate   = document.getElementById('metaDate');
+      const metaStart  = document.getElementById('metaStart');
+      const metaFinish = document.getElementById('metaFinish');
+      const progWrap   = document.getElementById('progressWrap');
+      const progBar    = document.getElementById('progressBar');
+      const runBtn     = document.getElementById('runBtn');
+
+      // Translate status
+      const MAP = {
+        idle:    { label: '대기 중',   cls: 'status-idle' },
+        running: { label: '실행 중',   cls: 'status-running' },
+        success: { label: '완료',      cls: 'status-success' },
+        failed:  { label: '실패',      cls: 'status-failed' },
+      };
+      const info = MAP[s.status] || MAP.idle;
+
+      badge.className = 'status-badge ' + info.cls;
+      text.textContent = info.label;
+      pulse.style.display = s.status === 'running' ? 'block' : 'none';
+
+      metaDate.textContent   = s.trade_date  || '—';
+      metaStart.textContent  = s.started_at  || '—';
+      metaFinish.textContent = s.finished_at || '—';
+
+      // Progress bar
+      if (s.status === 'running') {
+        progWrap.style.display = 'block';
+        const step = detectStep(s.logs);
+        progBar.style.width = (step / 4 * 100) + '%';
+      } else if (s.status === 'success') {
+        progWrap.style.display = 'block';
+        progBar.style.width = '100%';
+      } else {
+        progWrap.style.display = 'none';
+      }
+
+      // Disable run button while running
+      runBtn.disabled = s.status === 'running';
+      runBtn.textContent = s.status === 'running' ? '⏳ 실행 중...' : '▶ 배치 실행';
+
+      renderLogs(s.logs || []);
+
+      // Auto-poll while running
+      if (s.status === 'running') {
+        schedulePoll();
+      } else {
+        clearPoll();
+        if (s.status === 'success') showAlert('✅ 배치가 성공적으로 완료되었습니다!', 'success');
+        if (s.status === 'failed')  showAlert('❌ 배치 실행 중 오류가 발생했습니다. 로그를 확인하세요.', 'error');
+      }
+    }
+
+    function detectStep(logs) {
+      if (!logs || logs.length === 0) return 0;
+      const last = logs[logs.length - 1].message;
+      // 기간 배치: "[i/total]" 패턴으로 진행률 계산
+      const rangeMatch = last.match(/\[(\d+)\/(\d+)\]/);
+      if (rangeMatch) {
+        const [, cur, total] = rangeMatch.map(Number);
+        return (cur / total) * 3 + 1;  // Step1 이후 1~4 범위로 매핑
+      }
+      // 단일 배치
+      if (last.includes('Step 4') && last.includes('완료')) return 4;
+      if (last.includes('Step 3') && last.includes('완료')) return 3;
+      if (last.includes('Step 2') && last.includes('완료')) return 2;
+      if (last.includes('Step 1') && last.includes('완료')) return 1;
+      if (last.includes('Step 4')) return 3.5;
+      if (last.includes('Step 3')) return 2.5;
+      if (last.includes('Step 2')) return 1.5;
+      if (last.includes('Step 1')) return 0.5;
+      return 0;
+    }
+
+    function renderLogs(logs) {
+      const el = document.getElementById('logConsole');
+      if (!logs || logs.length === 0) {
+        el.innerHTML = '<div class="log-empty">로그가 없습니다.</div>';
+        return;
+      }
+      el.innerHTML = logs.map(l => {
+        const msg = l.message || '';
+        let cls = '';
+        if (msg.includes('완료') || msg.includes('성공')) cls = 'done';
+        else if (msg.includes('실패') || msg.includes('오류') || msg.includes('failed') || msg.includes('error')) cls = 'error';
+        else if (msg.includes('Step') || msg.includes('중...')) cls = 'step';
+        else if (msg.includes('경고') || msg.includes('warning')) cls = 'warn';
+        return `<div class="log-line">
+          <span class="log-time">[${l.time}]</span>
+          <span class="log-msg ${cls}">${escHtml(msg)}</span>
+        </div>`;
+      }).join('');
+      // Auto-scroll to bottom
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Polling ───────────────────────────────────────────────────────────────
+    function schedulePoll() {
+      if (pollTimer) return; // already scheduled
+      pollTimer = setInterval(async () => {
+        await refreshStatus();
+      }, 2000);
+    }
+
+    function clearPoll() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // ── Trigger batch (단일) ──────────────────────────────────────────────────
+    document.getElementById('runBtn').addEventListener('click', async () => {
+      const date = document.getElementById('batchDate').value;
+      hideAlert();
+      try {
+        const res = await triggerBatch(date || undefined);
+        if (res.status === 'already_running') {
+          showAlert('⚠️ 이미 배치가 실행 중입니다.', 'warn');
+        } else {
+          showAlert(`🚀 배치 실행을 시작했습니다 (기준일: ${res.trade_date})`, 'success');
+          schedulePoll();
+          setTimeout(refreshStatus, 500);
+        }
+      } catch (e) {
+        showAlert('배치 실행 실패: ' + e.message, 'error');
+      }
+    });
+
+    // ── Trigger range batch (기간) ────────────────────────────────────────────
+    document.getElementById('runRangeBtn').addEventListener('click', async () => {
+      const start = document.getElementById('rangeStart').value;
+      const end   = document.getElementById('rangeEnd').value;
+      hideAlert();
+
+      if (!start || !end) {
+        showAlert('⚠️ 시작일과 종료일을 모두 입력하세요.', 'warn');
+        return;
+      }
+      if (start > end) {
+        showAlert('⚠️ 시작일이 종료일보다 늦습니다.', 'warn');
+        return;
+      }
+      const days = countWeekdays(start, end);
+      if (days > 60) {
+        if (!confirm(`약 ${days}거래일치 데이터를 수집합니다. 시간이 오래 걸릴 수 있습니다. 계속하시겠습니까?`)) return;
+      }
+
+      try {
+        const res = await triggerRange(start, end);
+        if (res.status === 'already_running') {
+          showAlert('⚠️ 이미 배치가 실행 중입니다.', 'warn');
+        } else {
+          showAlert(`🚀 기간 배치 시작 (${res.start_date} ~ ${res.end_date}, ${res.trading_days}거래일)`, 'success');
+          schedulePoll();
+          setTimeout(refreshStatus, 500);
+        }
+      } catch (e) {
+        showAlert('기간 배치 실행 실패: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      hideAlert();
+      await refreshStatus();
+    });
+
+    // ── Alert helpers ─────────────────────────────────────────────────────────
+    function showAlert(msg, type) {
+      const el = document.getElementById('alertMsg');
+      el.textContent = msg;
+      el.className = 'alert ' + (type === 'error' ? 'alert-error' : type === 'warn' ? 'alert-warn' : 'alert-success');
+      el.style.display = 'block';
+    }
+    function hideAlert() {
+      const el = document.getElementById('alertMsg');
+      el.style.display = 'none';
+    }
+
+    // ── 데이터 현황 ───────────────────────────────────────────────────────────
+    let calPanelOpen    = false;
+    let calCurrentMonths = 6;
+
+    function toggleDataPanel() {
+      calPanelOpen = !calPanelOpen;
+      const wrap = document.getElementById('dataCalWrap');
+      const btn  = document.getElementById('dataCheckBtn');
+      wrap.classList.toggle('open', calPanelOpen);
+      btn.textContent = calPanelOpen ? '▲ 닫기' : '📋 데이터 유무 확인';
+      if (calPanelOpen && document.getElementById('calMonths').children.length === 0) {
+        loadDataDates(calCurrentMonths);
+      }
+    }
+
+    async function loadDataDates(months) {
+      calCurrentMonths = months;
+      // 범위 버튼 active 상태
+      document.querySelectorAll('.cal-range-btn').forEach(b => {
+        b.classList.toggle('active', +b.dataset.months === months);
+      });
+      const loading = document.getElementById('calLoadingMsg');
+      loading.style.display = 'inline';
+      document.getElementById('calMonths').innerHTML = '';
+      document.getElementById('dataStatRow').innerHTML = '';
+
+      try {
+        const data = await getDataDates(months);
+        renderCalendar(data);
+      } catch(e) {
+        document.getElementById('calMonths').innerHTML =
+          `<p style="color:#f87171;font-size:13px">데이터 조회 실패: ${e.message}</p>`;
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function renderCalendar(data) {
+      const { dates, total_days, months } = data;
+
+      // 날짜 → 데이터 맵
+      const dateMap = {};
+      let completeDays = 0, priceOnlyDays = 0;
+      dates.forEach(d => {
+        dateMap[d.date] = d;
+        if (d.price_count > 0 && d.indicator_count > 0) completeDays++;
+        else if (d.price_count > 0) priceOnlyDays++;
+      });
+
+      // 요약 stat
+      const statRow = document.getElementById('dataStatRow');
+      statRow.innerHTML = `
+        <div class="data-stat"><b class="green">${total_days}</b>총 거래일</div>
+        <div class="data-stat"><b class="green">${completeDays}</b>완비 (가격+지표)</div>
+        <div class="data-stat"><b class="amber">${priceOnlyDays}</b>가격만</div>
+        <div class="data-stat"><b style="color:#f87171">${total_days - completeDays - priceOnlyDays}</b>데이터 없음</div>
+      `;
+
+      // 월별 달력 생성
+      const today = new Date();
+      const startMonth = new Date(today.getFullYear(), today.getMonth() - months + 1, 1);
+      const calWrap = document.getElementById('calMonths');
+
+      for (let mi = 0; mi < months; mi++) {
+        const d = new Date(startMonth.getFullYear(), startMonth.getMonth() + mi, 1);
+        calWrap.appendChild(buildMonthCal(d, dateMap));
+      }
+    }
+
+    function buildMonthCal(monthDate, dateMap) {
+      const y = monthDate.getFullYear();
+      const m = monthDate.getMonth(); // 0-based
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const firstDow = new Date(y, m, 1).getDay(); // 0=일
+
+      const card = document.createElement('div');
+      card.className = 'cal-month';
+
+      const title = document.createElement('div');
+      title.className = 'cal-month-title';
+      title.textContent = `${y}년 ${m + 1}월`;
+      card.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'cal-grid';
+
+      // 요일 헤더
+      ['일','월','화','수','목','금','토'].forEach(dow => {
+        const h = document.createElement('div');
+        h.className = 'cal-dow';
+        h.textContent = dow;
+        grid.appendChild(h);
+      });
+
+      // 첫 날 앞 빈칸
+      for (let i = 0; i < firstDow; i++) {
+        const blank = document.createElement('div');
+        blank.className = 'cal-cell empty';
+        grid.appendChild(blank);
+      }
+
+      // 날짜 셀
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const dow = new Date(y, m, day).getDay();
+        const isWeekend = dow === 0 || dow === 6;
+
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell';
+
+        const num = document.createElement('span');
+        num.textContent = day;
+        cell.appendChild(num);
+
+        if (isWeekend) {
+          cell.classList.add('weekend');
+        } else if (dateMap[dateStr]) {
+          const dd = dateMap[dateStr];
+          const cnt = document.createElement('div');
+          cnt.className = 'cal-cnt';
+          if (dd.price_count > 0 && dd.indicator_count > 0) {
+            cell.classList.add('has-both');
+            cnt.textContent = fmt(dd.price_count);
+          } else if (dd.price_count > 0) {
+            cell.classList.add('has-price-only');
+            cnt.textContent = fmt(dd.price_count);
+          } else {
+            cell.classList.add('no-data');
+          }
+          cell.appendChild(cnt);
+          // 마우스 오버 상세 툴팁
+          cell.addEventListener('mouseenter', (e) => showDateDetail(e, dateStr, dd));
+          cell.addEventListener('mouseleave', hideDateDetail);
+        } else {
+          cell.classList.add('no-data');
+        }
+
+        grid.appendChild(cell);
+      }
+
+      card.appendChild(grid);
+      return card;
+    }
+
+    function showDateDetail(e, dateStr, dd) {
+      const box = document.getElementById('dateDetailBox');
+      box.innerHTML = `
+        <div style="font-weight:700;margin-bottom:6px;color:var(--text-primary)">${dateStr}</div>
+        <div style="color:var(--text-secondary)">가격 데이터: <b style="color:#60a5fa">${fmt(dd.price_count)}종목</b></div>
+        <div style="color:var(--text-secondary)">지표 데이터: <b style="color:#34d399">${fmt(dd.indicator_count)}종목</b></div>
+        ${dd.indicator_count === 0 && dd.price_count > 0
+          ? '<div style="color:#fbbf24;margin-top:4px;font-size:12px">⚠ 지표 미계산</div>' : ''}
+        ${dd.price_count === 0
+          ? '<div style="color:#f87171;margin-top:4px;font-size:12px">✕ 데이터 없음</div>' : ''}
+      `;
+      box.style.display = 'block';
+      positionDetail(box, e);
+    }
+
+    function positionDetail(box, e) {
+      const margin = 12;
+      let x = e.clientX + margin;
+      let y = e.clientY + margin;
+      box.style.left = x + 'px';
+      box.style.top  = y + 'px';
+    }
+
+    function hideDateDetail() {
+      document.getElementById('dateDetailBox').style.display = 'none';
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
