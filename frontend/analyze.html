@@ -542,7 +542,7 @@
       clearTimeout(sTimer);
       const q = this.value.trim();
       if (!q) { closeDd(); return; }
-      sTimer = setTimeout(() => doSearch(q), 260);
+      sTimer = setTimeout(() => doSearch(q), 600);
     });
     stockInput.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeDd();
