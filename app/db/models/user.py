@@ -15,6 +15,7 @@ class UserORM(Base):
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="user")  # admin | user
 
     # 사용자 커스텀 스캔 조건
     scan_conditions: Mapped[list] = mapped_column(

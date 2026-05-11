@@ -33,6 +33,7 @@ class UserMeResponse(BaseModel):
     id: int
     username: str
     nickname: str
+    role: str = "user"
     scan_conditions: list
 
 
@@ -108,6 +109,7 @@ async def get_me(current_user=Depends(get_current_user)):
         id=current_user.id,
         username=current_user.username,
         nickname=current_user.nickname,
+        role=getattr(current_user, "role", "user"),
         scan_conditions=current_user.scan_conditions,
     )
 
@@ -127,5 +129,6 @@ async def update_conditions(
         id=current_user.id,
         username=current_user.username,
         nickname=current_user.nickname,
+        role=getattr(current_user, "role", "user"),
         scan_conditions=conditions,
     )

@@ -174,6 +174,105 @@ async function updateNotifyConfig(conditions, schedule) {
   });
 }
 
+// ── Permissions ───────────────────────────────────────────────────────────────
+
+async function getPermPages()  { return apiFetch('/permissions/pages'); }
+async function getPermRoles()  { return apiFetch('/permissions/roles'); }
+async function updatePermRole(role, allowed_pages) {
+  return apiFetch(`/permissions/roles/${role}`, {
+    method: 'PUT',
+    body: JSON.stringify({ allowed_pages }),
+  });
+}
+async function getPermUsers()  { return apiFetch('/permissions/users'); }
+async function updateUserRole(uid, role) {
+  return apiFetch(`/permissions/users/${uid}`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  });
+}
+
+// ── Analysis / ChatGPT ────────────────────────────────────────────────────────
+
+async function getAnalysisTemplate() { return apiFetch('/analysis/template'); }
+async function updateAnalysisTemplate(data) {
+  return apiFetch('/analysis/template', { method: 'PUT', body: JSON.stringify(data) });
+}
+async function resetAnalysisTemplate() {
+  return apiFetch('/analysis/template/reset', { method: 'POST' });
+}
+async function runAnalysis(ticker, avg_price) {
+  return apiFetch('/analysis/run', {
+    method: 'POST',
+    body: JSON.stringify({ ticker, avg_price: avg_price || null }),
+  });
+}
+
+// ── Role-based nav ────────────────────────────────────────────────────────────
+
+/**
+ * 현재 로그인 사용자의 역할을 캐시하여 반환.
+ * 로그인 후 localStorage에 'role' 저장.
+ */
+function getRole() { return localStorage.getItem('role') || 'user'; }
+function setRole(r) { localStorage.setItem('role', r); }
+
+/**
+ * applyNavPermissions(allowedPages)
+ * allowedPages: 서버에서 받은 이 사용자 역할의 허용 페이지 키 배열.
+ * data-page 속성이 있는 nav 링크를 허용 목록 기준으로 숨김.
+ */
+function applyNavPermissions(allowedPages) {
+  const allowed = new Set(allowedPages || []);
+  document.querySelectorAll('[data-page]').forEach(function(el) {
+    const key = el.getAttribute('data-page');
+    el.style.display = allowed.has(key) ? '' : 'none';
+  });
+}
+
+/**
+ * initNav() — 모든 페이지에서 호출.
+ * 1. 로그인 확인
+ * 2. /auth/me 로 역할·권한 조회 후 nav 업데이트
+ */
+async function initNav() {
+  if (!getToken()) { location.href = '/login.html'; return; }
+  const navUser = document.getElementById('navUser');
+  if (navUser) navUser.textContent = getNickname() || '';
+
+  try {
+    const me = await getMe();
+    setRole(me.role || 'user');
+
+    // admin 전용 항목 표시
+    document.querySelectorAll('[data-role="admin"]').forEach(function(el) {
+      el.style.display = me.role === 'admin' ? '' : 'none';
+    });
+
+    // 권한 기반 메뉴 숨김 (서버 DB 기준)
+    try {
+      const perm = await apiFetch('/permissions/roles');
+      const myRole = me.role || 'user';
+      const allowed = (perm.roles || {})[myRole] || [];
+      applyNavPermissions(allowed);
+    } catch (e) {
+      // 권한 API 실패 시 무시 (admin 전용 엔드포인트라 user는 403)
+      // user는 기본 허용 목록 적용
+      const defaultAllowed = ['home', 'settings', 'sector', 'research', 'analysis', 'notify'];
+      if (me.role === 'admin') {
+        // admin은 모든 메뉴 표시
+        document.querySelectorAll('[data-page]').forEach(function(el) {
+          el.style.display = '';
+        });
+      } else {
+        applyNavPermissions(defaultAllowed);
+      }
+    }
+  } catch (e) {
+    // getMe 실패 → 로그아웃 처리
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function requireAuth() {

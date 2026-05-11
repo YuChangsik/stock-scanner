@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>종목분석 — 댕댕투자</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <style>
+    /* ── Input Card ── */
+    .input-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .input-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .input-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .analysis-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text-primary);
+      font-size: 15px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .15s;
+      min-width: 0;
+    }
+    .analysis-input:focus { border-color: var(--accent); }
+    #tickerInput  { width: 140px; }
+    #priceInput   { width: 160px; }
+
+    /* ── Result Sections ── */
+    .result-wrap {
+      display: none;
+    }
+    .result-wrap.visible {
+      display: block;
+    }
+    .result-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-bottom: 18px;
+    }
+    .result-section h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-section h3::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .result-content {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    /* ── Stock summary bar ── */
+    .stock-summary {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      line-height: 1.7;
+    }
+
+    /* ── Loading ── */
+    .loading-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 60px 20px;
+    }
+    .loading-wrap.visible { display: flex; }
+    .spinner-lg {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Template editor (admin) ── */
+    .template-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    .template-panel h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .template-toggle {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .template-body { display: none; }
+    .template-body.open { display: block; }
+
+    .tmpl-field {
+      margin-bottom: 16px;
+    }
+    .tmpl-field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .tmpl-textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 10px 12px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.6;
+      transition: border-color .15s;
+      box-sizing: border-box;
+    }
+    .tmpl-textarea:focus { border-color: var(--accent); }
+
+    .section-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .section-card .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .section-card .section-num {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      width: 22px;
+    }
+    .section-title-input {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 7px 10px;
+      outline: none;
+    }
+
+    .tmpl-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 600px) {
+      #tickerInput  { width: 100%; }
+      #priceInput   { width: 100%; }
+      .input-row    { flex-direction: column; }
+      .input-group  { width: 100%; }
+      .input-card   { padding: 20px 18px; }
+      .result-section { padding: 18px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a class="navbar-brand" href="/main.html">🐶 <span>댕댕투자</span></a>
+    <button class="navbar-toggle" id="navToggle" aria-label="메뉴">☰</button>
+    <div class="navbar-nav" id="navMenu">
+      <span class="nav-user" id="navUser"></span>
+      <a class="nav-link" href="/main.html"          data-page="home">홈</a>
+      <a class="nav-link" href="/settings.html"      data-page="settings">⚙️ 조건설정</a>
+      <a class="nav-link" href="/sector.html"        data-page="sector">🏭 업종현황</a>
+      <a class="nav-link" href="/research.html"      data-page="research">📰 리서치</a>
+      <a class="nav-link active" href="/analysis.html" data-page="analysis">🤖 종목분석</a>
+      <a class="nav-link" href="/notify.html"        data-page="notify">🔔 알림설정</a>
+      <a class="nav-link" href="/admin.html"         data-page="admin" data-role="admin">🛠 배치관리</a>
+      <a class="nav-link" href="/permissions.html"   data-page="permissions" data-role="admin">🔐 권한관리</a>
+      <button class="btn btn-outline btn-sm" id="logoutBtn">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <div class="page-title">🤖 종목분석</div>
+        <div class="page-subtitle">ChatGPT를 활용한 AI 종목 분석</div>
+      </div>
+    </div>
+
+    <!-- 분석 입력 -->
+    <div class="input-card">
+      <div class="input-row">
+        <div class="input-group">
+          <label for="tickerInput">종목코드</label>
+          <input type="text" id="tickerInput" class="analysis-input"
+            placeholder="예) 005930" maxlength="10" autocomplete="off"
+            style="text-transform:uppercase">
+        </div>
+        <div class="input-group">
+          <label for="priceInput">평단가 (선택)</label>
+          <input type="number" id="priceInput" class="analysis-input"
+            placeholder="예) 75000" min="0" step="1">
+        </div>
+        <button class="btn btn-primary" id="analyzeBtn" style="min-width:110px;">
+          🔍 분석하기
+        </button>
+      </div>
+    </div>
+
+    <!-- 템플릿 편집 (admin 전용) -->
+    <div class="template-panel" id="templatePanel" style="display:none;">
+      <h2>
+        📋 분석 템플릿 설정
+        <span class="template-toggle" id="tmplToggle">펼치기</span>
+      </h2>
+      <div class="template-body" id="tmplBody">
+        <div class="tmpl-field">
+          <label>시스템 프롬프트</label>
+          <textarea id="tmplSystemPrompt" class="tmpl-textarea" rows="3"></textarea>
+        </div>
+        <div id="tmplSections"></div>
+        <div class="tmpl-actions">
+          <button class="btn btn-outline btn-sm" id="tmplResetBtn">기본값으로 초기화</button>
+          <button class="btn btn-primary btn-sm" id="tmplSaveBtn">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 로딩 -->
+    <div class="loading-wrap" id="loadingWrap">
+      <div class="spinner-lg"></div>
+      <p class="loading-msg" id="loadingMsg">ChatGPT가 분석 중입니다... 잠시만 기다려주세요.</p>
+    </div>
+
+    <!-- 결과 -->
+    <div class="result-wrap" id="resultWrap">
+      <div class="stock-summary" id="stockSummary"></div>
+      <div id="resultSections"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+  (async function () {
+    if (!requireAuth()) return;
+    await initNav();
+
+    const isAdmin = getRole() === 'admin';
+
+    document.getElementById('logoutBtn').addEventListener('click', function () {
+      clearAuth(); location.href = '/login.html';
+    });
+
+    // ── 템플릿 (admin) ────────────────────────────────────────────────────
+    let templateData = null;
+
+    if (isAdmin) {
+      document.getElementById('templatePanel').style.display = '';
+      await loadTemplate();
+
+      document.getElementById('tmplToggle').addEventListener('click', function () {
+        const body = document.getElementById('tmplBody');
+        const open = body.classList.toggle('open');
+        this.textContent = open ? '접기' : '펼치기';
+      });
+
+      document.getElementById('tmplSaveBtn').addEventListener('click', saveTemplate);
+      document.getElementById('tmplResetBtn').addEventListener('click', async function () {
+        if (!confirm('기본 템플릿으로 초기화하시겠습니까?')) return;
+        try {
+          await resetAnalysisTemplate();
+          await loadTemplate();
+          showToast('초기화되었습니다.');
+        } catch (e) { showToast(e.message, 'error'); }
+      });
+    }
+
+    async function loadTemplate() {
+      try {
+        templateData = await getAnalysisTemplate();
+        renderTemplate(templateData);
+      } catch (e) {
+        showToast('템플릿 로드 실패: ' + e.message, 'error');
+      }
+    }
+
+    function renderTemplate(tmpl) {
+      document.getElementById('tmplSystemPrompt').value = tmpl.system_prompt || '';
+      const sections = tmpl.sections || [];
+      document.getElementById('tmplSections').innerHTML = sections.map(function(s, i) {
+        return `<div class="section-card" data-idx="${i}">
+          <div class="section-title-row">
+            <span class="section-num">${i + 1}.</span>
+            <input type="text" class="section-title-input" value="${esc(s.title)}" placeholder="섹션 제목">
+          </div>
+          <textarea class="tmpl-textarea" rows="3" placeholder="분석 프롬프트">${esc(s.prompt)}</textarea>
+        </div>`;
+      }).join('');
+    }
+
+    async function saveTemplate() {
+      const systemPrompt = document.getElementById('tmplSystemPrompt').value.trim();
+      const sectionCards = document.querySelectorAll('#tmplSections .section-card');
+      const sections = [];
+      sectionCards.forEach(function(card, i) {
+        const title  = card.querySelector('.section-title-input').value.trim();
+        const prompt = card.querySelector('textarea').value.trim();
+        const key    = (templateData && templateData.sections && templateData.sections[i])
+          ? templateData.sections[i].key
+          : 'section_' + i;
+        sections.push({ key, title, prompt });
+      });
+      try {
+        await updateAnalysisTemplate({ system_prompt: systemPrompt, sections });
+        showToast('템플릿이 저장되었습니다.');
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+
+    // ── 분석 실행 ─────────────────────────────────────────────────────────
+    document.getElementById('analyzeBtn').addEventListener('click', doAnalysis);
+    document.getElementById('tickerInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doAnalysis();
+    });
+
+    async function doAnalysis() {
+      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+      if (!ticker) { showToast('종목코드를 입력해주세요.', 'error'); return; }
+
+      const priceVal = document.getElementById('priceInput').value.trim();
+      const avgPrice = priceVal ? parseFloat(priceVal) : null;
+
+      // UI 상태 전환
+      document.getElementById('resultWrap').classList.remove('visible');
+      const loading = document.getElementById('loadingWrap');
+      loading.classList.add('visible');
+      document.getElementById('analyzeBtn').disabled = true;
+
+      const msgs = [
+        'ChatGPT가 분석 중입니다... 잠시만 기다려주세요.',
+        '종목 데이터를 수집하고 있습니다...',
+        '기술적 지표를 분석하고 있습니다...',
+        '분석 결과를 정리하고 있습니다...',
+      ];
+      let msgIdx = 0;
+      const msgEl = document.getElementById('loadingMsg');
+      const msgTimer = setInterval(function () {
+        msgIdx = (msgIdx + 1) % msgs.length;
+        msgEl.textContent = msgs[msgIdx];
+      }, 3000);
+
+      try {
+        const result = await runAnalysis(ticker, avgPrice);
+        clearInterval(msgTimer);
+        renderResult(result);
+      } catch (e) {
+        clearInterval(msgTimer);
+        showToast(e.message, 'error');
+      } finally {
+        loading.classList.remove('visible');
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    }
+
+    const SECTION_ICONS = {
+      core_business: '🏢',
+      technical:     '📊',
+      price_rise:    '📈',
+      investor_view: '💡',
+    };
+
+    function renderResult(result) {
+      // 종목 요약 정보
+      const summaryEl = document.getElementById('stockSummary');
+      summaryEl.textContent = result.stock_info || '';
+
+      // 섹션별 분석 결과
+      const sections = result.sections || [];
+      document.getElementById('resultSections').innerHTML = sections.map(function(s) {
+        const icon = SECTION_ICONS[s.key] || '📋';
+        return `<div class="result-section">
+          <h3>${icon} ${esc(s.title)}</h3>
+          <div class="result-content">${esc(s.content)}</div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('resultWrap').classList.add('visible');
+      document.getElementById('resultWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function showToast(msg, type) {
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;
+        padding:12px 20px;border-radius:10px;font-size:14px;font-weight:500;
+        background:${type === 'error' ? '#fee2e2' : '#dcfce7'};
+        color:${type === 'error' ? '#991b1b' : '#166534'};
+        box-shadow:0 4px 16px rgba(0,0,0,.12);`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(function () { el.remove(); }, 3500);
+    }
+  })();
+  </script>
+</body>
+</html>

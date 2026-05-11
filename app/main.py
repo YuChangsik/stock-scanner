@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.exceptions import DataNotAvailableError, ScanJobNotFoundError
 from app.core.logging import configure_logging, get_logger
-from app.api.routers import stocks, scan, auth, notify
+from app.api.routers import stocks, scan, auth, notify, permissions, analysis
 from fastapi.staticfiles import StaticFiles
 from app.db.session import engine, Base
 from app.db.models import *  # noqa: F401, F403 — ensure all ORM models are registered
@@ -47,10 +47,18 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS kakao_token_expires_at TIMESTAMPTZ",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_conditions    JSONB",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_schedule      JSONB",
+            # 역할 관리
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'",
         ]
         from sqlalchemy import text
         for sql in migrations:
             await conn.execute(text(sql))
+
+    # 기본 권한 초기화
+    from app.api.routers.permissions import ensure_default_permissions
+    from app.db.session import AsyncSessionFactory
+    async with AsyncSessionFactory() as perm_session:
+        await ensure_default_permissions(perm_session)
 
     scheduler = create_scheduler()
     scheduler.start()
@@ -90,10 +98,12 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-app.include_router(auth.router,   prefix=settings.api_prefix)
-app.include_router(stocks.router, prefix=settings.api_prefix)
-app.include_router(scan.router,   prefix=settings.api_prefix)
-app.include_router(notify.router, prefix=settings.api_prefix)
+app.include_router(auth.router,        prefix=settings.api_prefix)
+app.include_router(stocks.router,      prefix=settings.api_prefix)
+app.include_router(scan.router,        prefix=settings.api_prefix)
+app.include_router(notify.router,      prefix=settings.api_prefix)
+app.include_router(permissions.router, prefix=settings.api_prefix)
+app.include_router(analysis.router,    prefix=settings.api_prefix)
 
 
 @app.get("/health")

@@ -60,11 +60,16 @@ class ScanService:
                 })
                 return {"job_id": job_id, "status": "failed", "matches": []}
 
-            # 골든크로스 within_days 파라미터에 맞게 과거 거래일 수 결정
+            # 과거 거래일 수 결정 — 조건별 lookback 파라미터 합산
             max_within_days = 1
             for c in request.conditions:
+                params = c.params or {}
                 if c.name == "golden_cross":
-                    max_within_days = max(max_within_days, int((c.params or {}).get("within_days", 1)))
+                    max_within_days = max(max_within_days, int(params.get("within_days", 1)))
+                elif c.name == "obv_rising":
+                    max_within_days = max(max_within_days, int(params.get("lookback_days", 5)))
+                elif c.name == "volume_recovery":
+                    max_within_days = max(max_within_days, int(params.get("lookback", 5)))
 
             # Load previous trading day snapshots (최대 max_within_days 일치)
             prev_dates = await self._get_prev_trade_dates(request.trade_date, max_within_days)
@@ -74,12 +79,35 @@ class ScanService:
                 prev_snaps_list.append(snaps)
 
             today_rows = [self._snap_to_dict(s) for s in today_snaps]
+
+            # 과거 날짜별 가격 데이터 로드 (volume_recovery, obv_rising 등에서 volume 사용)
+            prev_prices_maps: list[dict] = []
+            for pd_ in prev_dates:
+                prev_prices = await self._price_repo.get_by_date(pd_)
+                prev_prices_maps.append({p.ticker: p for p in prev_prices})
+
             # most-recent prev day (for backward compat) + older days
             prev_rows = [self._snap_to_dict(s) for s in prev_snaps_list[0]] if prev_snaps_list else []
-            extra_prev = [
-                [self._snap_to_dict(s) for s in day_snaps]
-                for day_snaps in prev_snaps_list[1:]
-            ]
+            # prev_rows에 거래량/종가 주입
+            if prev_prices_maps:
+                pm = prev_prices_maps[0]
+                for row in prev_rows:
+                    p = pm.get(row["ticker"])
+                    if p:
+                        row["volume"] = int(p.volume)
+                        row["close"]  = float(p.close)
+
+            extra_prev = []
+            for i, day_snaps in enumerate(prev_snaps_list[1:], start=1):
+                day_rows = [self._snap_to_dict(s) for s in day_snaps]
+                if i < len(prev_prices_maps):
+                    pm = prev_prices_maps[i]
+                    for row in day_rows:
+                        p = pm.get(row["ticker"])
+                        if p:
+                            row["volume"] = int(p.volume)
+                            row["close"]  = float(p.close)
+                extra_prev.append(day_rows)
 
             # 업종(sector) 주입 — sector 조건 및 결과 표시에 사용
             sector_map = await self._stock_repo.get_sector_map()
@@ -292,6 +320,8 @@ class ScanService:
             "per":          snap.per,
             "pbr":          snap.pbr,
             "volume_rank":  snap.volume_rank,
+            # prev_history 조건(obv_rising, volume_recovery)에서 사용
+            "volume":       None,  # price 주입 후 채워짐 (today_rows 전용)
         }
 
     @staticmethod

@@ -35,8 +35,13 @@ class Settings(BaseSettings):
     default_lookback_days: int = 60
 
     # KakaoTalk
-    kakao_rest_api_key: str = ""
-    kakao_redirect_uri: str = "http://localhost:8000/api/v1/notify/kakao/callback"
+    kakao_rest_api_key:    str = ""
+    kakao_client_secret:   str = ""
+    kakao_redirect_uri:    str = "http://localhost:8000/api/v1/notify/kakao/callback"
+
+    # OpenAI
+    openai_api_key:        str = ""
+    openai_model:          str = "gpt-4o-mini"
 
     @field_validator("log_level")
     @classmethod

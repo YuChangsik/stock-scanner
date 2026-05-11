@@ -49,15 +49,20 @@ class NotifyService:
     @staticmethod
     async def exchange_code(code: str) -> dict:
         """인증 코드 → access_token / refresh_token 교환."""
+        data: dict[str, str] = {
+            "grant_type":   "authorization_code",
+            "client_id":    settings.kakao_rest_api_key,
+            "redirect_uri": settings.kakao_redirect_uri,
+            "code":         code,
+        }
+        # Client Secret 활성화된 앱은 필수로 포함
+        if settings.kakao_client_secret:
+            data["client_secret"] = settings.kakao_client_secret
+
         async with httpx.AsyncClient() as client:
             r = await client.post(
                 f"{KAKAO_AUTH_BASE}/oauth/token",
-                data={
-                    "grant_type":   "authorization_code",
-                    "client_id":    settings.kakao_rest_api_key,
-                    "redirect_uri": settings.kakao_redirect_uri,
-                    "code":         code,
-                },
+                data=data,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 timeout=10.0,
             )
@@ -68,14 +73,18 @@ class NotifyService:
     @staticmethod
     async def refresh_access_token(refresh_token: str) -> dict:
         """refresh_token으로 새 access_token 발급."""
+        data: dict[str, str] = {
+            "grant_type":    "refresh_token",
+            "client_id":     settings.kakao_rest_api_key,
+            "refresh_token": refresh_token,
+        }
+        if settings.kakao_client_secret:
+            data["client_secret"] = settings.kakao_client_secret
+
         async with httpx.AsyncClient() as client:
             r = await client.post(
                 f"{KAKAO_AUTH_BASE}/oauth/token",
-                data={
-                    "grant_type":    "refresh_token",
-                    "client_id":     settings.kakao_rest_api_key,
-                    "refresh_token": refresh_token,
-                },
+                data=data,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 timeout=10.0,
             )

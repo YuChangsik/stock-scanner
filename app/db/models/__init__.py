@@ -3,6 +3,7 @@ from app.db.models.price import DailyPriceORM
 from app.db.models.indicator import IndicatorSnapshotORM
 from app.db.models.scan import ScanJobORM, ScanResultORM
 from app.db.models.user import UserORM
+from app.db.models.analysis import AnalysisTemplateORM, RolePermissionORM
 
 __all__ = [
     "StockORM",
@@ -11,4 +12,6 @@ __all__ = [
     "ScanJobORM",
     "ScanResultORM",
     "UserORM",
+    "AnalysisTemplateORM",
+    "RolePermissionORM",
 ]
