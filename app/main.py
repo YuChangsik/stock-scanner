@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.exceptions import DataNotAvailableError, ScanJobNotFoundError
 from app.core.logging import configure_logging, get_logger
-from app.api.routers import stocks, scan, auth, notify, permissions, analysis
+from app.api.routers import stocks, scan, auth, notify, permissions, analysis, public
 from fastapi.staticfiles import StaticFiles
 from app.db.session import engine, Base
 from app.db.models import *  # noqa: F401, F403 — ensure all ORM models are registered
@@ -104,6 +104,7 @@ app.include_router(scan.router,        prefix=settings.api_prefix)
 app.include_router(notify.router,      prefix=settings.api_prefix)
 app.include_router(permissions.router, prefix=settings.api_prefix)
 app.include_router(analysis.router,    prefix=settings.api_prefix)
+app.include_router(public.router,      prefix=settings.api_prefix)
 
 
 @app.get("/health")
