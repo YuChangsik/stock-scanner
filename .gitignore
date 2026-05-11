@@ -1,27 +1,24 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-dist/
-build/
-
-# 환경변수 — 절대 커밋 금지
-.env
-*.env.local
-
-# IDE
-.idea/
-.vscode/
-
-# OS
-.DS_Store
-
-# Logs
-*.log
-/tmp/
 
 # DB
+# IDE
+# Logs
+# OS
+# Python
+# 환경변수 — 절대 커밋 금지
+*.egg-info/
+*.env.local
+*.log
+*.py[cod]
 *.sqlite3
+.DS_Store
+.env
+.env.save
+.idea/
+.venv/
+.vscode/
+/tmp/
+__pycache__/
+build/
+dist/
 logs/
+venv/

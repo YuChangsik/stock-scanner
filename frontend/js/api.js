@@ -174,6 +174,12 @@ async function updateNotifyConfig(conditions, schedule) {
   });
 }
 
+// ── Stock Search ─────────────────────────────────────────────────────────────
+
+async function searchStocks(q) {
+  return apiFetch(`/stocks/search?q=${encodeURIComponent(q)}`);
+}
+
 // ── Permissions ───────────────────────────────────────────────────────────────
 
 async function getPermPages()  { return apiFetch('/permissions/pages'); }

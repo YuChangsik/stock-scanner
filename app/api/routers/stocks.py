@@ -107,6 +107,35 @@ async def get_sector_stocks(
     return {"sector": sector_name, "stocks": stocks, "count": len(stocks)}
 
 
+@router.get("/search")
+async def search_stocks(
+    q: str = Query(..., description="종목명 또는 종목코드 (부분 일치)"),
+    stock_repo: Annotated[StockRepository, Depends(get_stock_repo)] = None,
+):
+    """종목명 또는 종목코드로 검색 (최대 20개)."""
+    from sqlalchemy import select
+    from app.db.models.stock import StockORM
+    from app.db.session import get_db
+
+    q = q.strip()
+    # repo session을 직접 사용
+    session = stock_repo._session
+    result = await session.execute(
+        select(StockORM)
+        .where(StockORM.is_active == True)  # noqa: E712
+        .where(
+            (StockORM.name.ilike(f"%{q}%")) | (StockORM.ticker.ilike(f"%{q}%"))
+        )
+        .order_by(StockORM.name)
+        .limit(20)
+    )
+    stocks = result.scalars().all()
+    return {
+        "total": len(stocks),
+        "items": [{"ticker": s.ticker, "name": s.name, "market": s.market} for s in stocks],
+    }
+
+
 @router.get("", response_model=StockListResponse)
 async def list_stocks(
     market: str | None = Query(None, description="Filter by market: KOSPI | KOSDAQ"),

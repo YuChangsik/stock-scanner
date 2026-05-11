@@ -26,6 +26,7 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      position: relative;
     }
     .input-group label {
       font-size: 13px;
@@ -44,16 +45,114 @@
       min-width: 0;
     }
     .analysis-input:focus { border-color: var(--accent); }
-    #tickerInput  { width: 140px; }
-    #priceInput   { width: 160px; }
+    #stockInput { width: 220px; }
+    #priceInput { width: 160px; }
 
-    /* ── Result Sections ── */
-    .result-wrap {
+    /* ── 종목 검색 드롭다운 ── */
+    .stock-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      z-index: 999;
+      overflow: hidden;
       display: none;
     }
-    .result-wrap.visible {
-      display: block;
+    .stock-dropdown.open { display: block; }
+    .stock-dropdown-item {
+      padding: 11px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
+    .stock-dropdown-item:last-child { border-bottom: none; }
+    .stock-dropdown-item:hover { background: var(--bg); }
+    .stock-dropdown-ticker {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .stock-selected-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .stock-selected-badge .clear-btn {
+      cursor: pointer;
+      opacity: .8;
+      font-size: 14px;
+    }
+
+    /* ── Summary Card (최상단) ── */
+    .summary-card {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f2540 100%);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 20px;
+      color: #e8f0fe;
+    }
+    .summary-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .summary-content {
+      font-size: 14px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      color: #d0e4ff;
+    }
+    .research-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,.12);
+      color: #a8d0ff;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+
+    /* ── Info Box ── */
+    .stock-info-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      line-height: 1.7;
+    }
+
+    /* ── Result Sections ── */
+    .result-wrap { display: none; }
+    .result-wrap.visible { display: block; }
+
     .result-section {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -80,46 +179,37 @@
     }
     .result-content {
       font-size: 14px;
-      line-height: 1.8;
+      line-height: 1.85;
       color: var(--text-primary);
       white-space: pre-wrap;
     }
 
-    /* ── Stock summary bar ── */
-    .stock-summary {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 18px;
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 20px;
-      white-space: pre-wrap;
-      font-family: 'Courier New', monospace;
-      line-height: 1.7;
-    }
-
     /* ── Loading ── */
-    .loading-wrap {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      padding: 60px 20px;
-    }
+    .loading-wrap { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 60px 20px; }
     .loading-wrap.visible { display: flex; }
     .spinner-lg {
       width: 48px; height: 48px;
       border: 4px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin .8s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-msg {
-      font-size: 14px;
+    @keyframes spin { to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
+    .loading-msg { font-size: 14px; color: var(--text-secondary); }
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+    .loading-step {
+      font-size: 13px;
       color: var(--text-secondary);
+      opacity: .5;
+      transition: opacity .3s;
     }
+    .loading-step.active { opacity: 1; color: var(--accent); font-weight: 600; }
+    .loading-step.done   { opacity: .7; color: #22c55e; }
 
     /* ── Template editor (admin) ── */
     .template-panel {
@@ -133,24 +223,16 @@
       font-size: 15px;
       font-weight: 600;
       color: var(--text-primary);
-      margin: 0 0 16px;
+      margin: 0 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-    }
-    .template-toggle {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--accent);
       cursor: pointer;
-      text-decoration: underline;
     }
-    .template-body { display: none; }
+    .template-toggle-icon { font-size: 13px; color: var(--accent); }
+    .template-body { display: none; margin-top: 18px; }
     .template-body.open { display: block; }
-
-    .tmpl-field {
-      margin-bottom: 16px;
-    }
+    .tmpl-field { margin-bottom: 16px; }
     .tmpl-field label {
       display: block;
       font-size: 13px;
@@ -173,7 +255,6 @@
       box-sizing: border-box;
     }
     .tmpl-textarea:focus { border-color: var(--accent); }
-
     .section-card {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -181,18 +262,13 @@
       padding: 14px 16px;
       margin-bottom: 12px;
     }
-    .section-card .section-title-row {
+    .section-title-row {
       display: flex;
       align-items: center;
       gap: 10px;
       margin-bottom: 10px;
     }
-    .section-card .section-num {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-      width: 22px;
-    }
+    .section-num { font-size: 12px; font-weight: 700; color: var(--accent); width: 22px; }
     .section-title-input {
       flex: 1;
       background: var(--card-bg);
@@ -204,7 +280,6 @@
       padding: 7px 10px;
       outline: none;
     }
-
     .tmpl-actions {
       display: flex;
       gap: 10px;
@@ -212,12 +287,54 @@
       margin-top: 8px;
     }
 
+    /* ── 팝업 (종목 선택) ── */
+    .modal-overlay {
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 340px;
+      max-width: 90vw;
+      box-shadow: 0 16px 48px rgba(0,0,0,.2);
+    }
+    .modal-box h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0 0 16px;
+    }
+    .modal-stock-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .modal-stock-item:hover { border-color: var(--accent); background: var(--bg); }
+    .modal-stock-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .modal-stock-meta { font-size: 12px; color: var(--text-secondary); }
+    .modal-cancel { width: 100%; margin-top: 8px; }
+
     @media (max-width: 600px) {
-      #tickerInput  { width: 100%; }
-      #priceInput   { width: 100%; }
-      .input-row    { flex-direction: column; }
-      .input-group  { width: 100%; }
-      .input-card   { padding: 20px 18px; }
+      #stockInput { width: 100%; }
+      #priceInput { width: 100%; }
+      .input-row { flex-direction: column; }
+      .input-group { width: 100%; }
+      .input-card { padding: 18px 16px; }
+      .summary-card { padding: 20px 16px; }
       .result-section { padding: 18px 16px; }
     }
   </style>
@@ -229,14 +346,14 @@
     <button class="navbar-toggle" id="navToggle" aria-label="메뉴">☰</button>
     <div class="navbar-nav" id="navMenu">
       <span class="nav-user" id="navUser"></span>
-      <a class="nav-link" href="/main.html"          data-page="home">홈</a>
-      <a class="nav-link" href="/settings.html"      data-page="settings">⚙️ 조건설정</a>
-      <a class="nav-link" href="/sector.html"        data-page="sector">🏭 업종현황</a>
-      <a class="nav-link" href="/research.html"      data-page="research">📰 리서치</a>
-      <a class="nav-link active" href="/analysis.html" data-page="analysis">🤖 종목분석</a>
-      <a class="nav-link" href="/notify.html"        data-page="notify">🔔 알림설정</a>
-      <a class="nav-link" href="/admin.html"         data-page="admin" data-role="admin">🛠 배치관리</a>
-      <a class="nav-link" href="/permissions.html"   data-page="permissions" data-role="admin">🔐 권한관리</a>
+      <a class="nav-link" href="/main.html"             data-page="home">홈</a>
+      <a class="nav-link" href="/settings.html"         data-page="settings">⚙️ 조건설정</a>
+      <a class="nav-link" href="/sector.html"           data-page="sector">🏭 업종현황</a>
+      <a class="nav-link" href="/research.html"         data-page="research">📰 리서치</a>
+      <a class="nav-link active" href="/analysis.html"  data-page="analysis">🤖 종목분석</a>
+      <a class="nav-link" href="/notify.html"           data-page="notify">🔔 알림설정</a>
+      <a class="nav-link" href="/admin.html"            data-page="admin" data-role="admin">🛠 배치관리</a>
+      <a class="nav-link" href="/permissions.html"      data-page="permissions" data-role="admin">🔐 권한관리</a>
       <button class="btn btn-outline btn-sm" id="logoutBtn">로그아웃</button>
     </div>
   </nav>
@@ -245,18 +362,24 @@
     <div class="page-header">
       <div>
         <div class="page-title">🤖 종목분석</div>
-        <div class="page-subtitle">ChatGPT를 활용한 AI 종목 분석</div>
+        <div class="page-subtitle">ChatGPT + 리서치 기반 AI 종목 분석</div>
       </div>
     </div>
 
     <!-- 분석 입력 -->
     <div class="input-card">
       <div class="input-row">
-        <div class="input-group">
-          <label for="tickerInput">종목코드</label>
-          <input type="text" id="tickerInput" class="analysis-input"
-            placeholder="예) 005930" maxlength="10" autocomplete="off"
-            style="text-transform:uppercase">
+        <div class="input-group" id="stockInputGroup">
+          <label for="stockInput">종목명 또는 종목코드</label>
+          <input type="text" id="stockInput" class="analysis-input"
+            placeholder="삼성전자 또는 005930" autocomplete="off">
+          <div class="stock-dropdown" id="stockDropdown"></div>
+          <div id="selectedBadge" style="display:none">
+            <span class="stock-selected-badge">
+              <span id="selectedLabel"></span>
+              <span class="clear-btn" id="clearSelected" title="선택 취소">✕</span>
+            </span>
+          </div>
         </div>
         <div class="input-group">
           <label for="priceInput">평단가 (선택)</label>
@@ -271,9 +394,9 @@
 
     <!-- 템플릿 편집 (admin 전용) -->
     <div class="template-panel" id="templatePanel" style="display:none;">
-      <h2>
-        📋 분석 템플릿 설정
-        <span class="template-toggle" id="tmplToggle">펼치기</span>
+      <h2 id="tmplHeader">
+        <span>📋 분석 템플릿 설정</span>
+        <span class="template-toggle-icon" id="tmplToggleIcon">▶ 펼치기</span>
       </h2>
       <div class="template-body" id="tmplBody">
         <div class="tmpl-field">
@@ -291,13 +414,37 @@
     <!-- 로딩 -->
     <div class="loading-wrap" id="loadingWrap">
       <div class="spinner-lg"></div>
-      <p class="loading-msg" id="loadingMsg">ChatGPT가 분석 중입니다... 잠시만 기다려주세요.</p>
+      <div class="loading-steps">
+        <div class="loading-step" id="step1">📊 종목 데이터 수집</div>
+        <div class="loading-step" id="step2">📰 리서치 수집</div>
+        <div class="loading-step" id="step3">🤖 ChatGPT 분석 중...</div>
+        <div class="loading-step" id="step4">✅ 결과 정리</div>
+      </div>
     </div>
 
     <!-- 결과 -->
     <div class="result-wrap" id="resultWrap">
-      <div class="stock-summary" id="stockSummary"></div>
+      <!-- 요약 (매수/매도/전망) -->
+      <div class="summary-card" id="summaryCard">
+        <h3>📈 종합 매매 전략 및 전망</h3>
+        <div id="researchBadge" class="research-badge" style="display:none">
+          📰 <span id="researchCount"></span>건의 리서치 참고
+        </div>
+        <div class="summary-content" id="summaryContent"></div>
+      </div>
+      <!-- 지표 요약 -->
+      <div class="stock-info-box" id="stockInfoBox"></div>
+      <!-- 섹션별 분석 -->
       <div id="resultSections"></div>
+    </div>
+  </div>
+
+  <!-- 종목 선택 팝업 -->
+  <div class="modal-overlay" id="stockModal">
+    <div class="modal-box">
+      <h3>종목을 선택하세요</h3>
+      <div id="modalStockList"></div>
+      <button class="btn btn-outline modal-cancel" id="modalCancel">취소</button>
     </div>
   </div>
 
@@ -314,17 +461,154 @@
       clearAuth(); location.href = '/login.html';
     });
 
-    // ── 템플릿 (admin) ────────────────────────────────────────────────────
+    // ── URL 파라미터 처리 (홈 화면에서 넘어올 때) ─────────────────────────────
+    const urlParams = new URLSearchParams(location.search);
+    let selectedTicker = urlParams.get('ticker') || '';
+    let selectedName   = urlParams.get('name')   || '';
+
+    if (selectedTicker) {
+      applySelection(selectedTicker, selectedName || selectedTicker);
+    }
+
+    // ── 종목 검색 ─────────────────────────────────────────────────────────────
+    const stockInput   = document.getElementById('stockInput');
+    const dropdown     = document.getElementById('stockDropdown');
+    const selectedBadge = document.getElementById('selectedBadge');
+    const selectedLabel = document.getElementById('selectedLabel');
+    const clearBtn     = document.getElementById('clearSelected');
+
+    let searchTimer = null;
+
+    stockInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      const q = this.value.trim();
+      if (!q) { closeDropdown(); return; }
+      searchTimer = setTimeout(function () { doSearch(q); }, 250);
+    });
+
+    stockInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDropdown();
+      if (e.key === 'Enter') {
+        const first = dropdown.querySelector('.stock-dropdown-item');
+        if (first) first.click();
+        else doSearch(stockInput.value.trim(), true);
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!document.getElementById('stockInputGroup').contains(e.target)) closeDropdown();
+    });
+
+    clearBtn.addEventListener('click', function () {
+      selectedTicker = '';
+      selectedName = '';
+      selectedBadge.style.display = 'none';
+      stockInput.value = '';
+      stockInput.style.display = '';
+      stockInput.focus();
+    });
+
+    async function doSearch(q, autoSelect) {
+      if (!q) return;
+      try {
+        const data = await searchStocks(q);
+        const items = data.items || [];
+        if (!items.length) {
+          showDropdownMsg('❌ 종목을 찾을 수 없습니다.');
+          return;
+        }
+        if (items.length === 1 || autoSelect) {
+          // 1개면 바로 선택
+          applySelection(items[0].ticker, items[0].name);
+          closeDropdown();
+          return;
+        }
+        if (autoSelect && items.length > 1) {
+          openModal(items);
+          closeDropdown();
+          return;
+        }
+        renderDropdown(items);
+      } catch (e) {
+        showDropdownMsg('검색 오류: ' + e.message);
+      }
+    }
+
+    function renderDropdown(items) {
+      dropdown.innerHTML = items.map(function (s) {
+        return `<div class="stock-dropdown-item" data-ticker="${s.ticker}" data-name="${esc(s.name)}">
+          <span>${esc(s.name)}</span>
+          <span class="stock-dropdown-ticker">${s.ticker} · ${s.market}</span>
+        </div>`;
+      }).join('');
+      dropdown.querySelectorAll('.stock-dropdown-item').forEach(function (el) {
+        el.addEventListener('click', function () {
+          applySelection(el.getAttribute('data-ticker'), el.getAttribute('data-name'));
+          closeDropdown();
+        });
+      });
+      dropdown.classList.add('open');
+    }
+
+    function showDropdownMsg(msg) {
+      dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">${msg}</div>`;
+      dropdown.classList.add('open');
+    }
+
+    function closeDropdown() {
+      dropdown.classList.remove('open');
+      dropdown.innerHTML = '';
+    }
+
+    function applySelection(ticker, name) {
+      selectedTicker = ticker;
+      selectedName   = name;
+      selectedLabel.textContent = `${name} (${ticker})`;
+      selectedBadge.style.display = '';
+      stockInput.style.display = 'none';
+      stockInput.value = name;
+    }
+
+    // ── 팝업 (2개 이상 종목) ──────────────────────────────────────────────────
+    const modal      = document.getElementById('stockModal');
+    const modalList  = document.getElementById('modalStockList');
+
+    document.getElementById('modalCancel').addEventListener('click', function () {
+      modal.classList.remove('open');
+    });
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.classList.remove('open');
+    });
+
+    function openModal(items) {
+      modalList.innerHTML = items.map(function (s) {
+        return `<div class="modal-stock-item" data-ticker="${s.ticker}" data-name="${esc(s.name)}">
+          <div>
+            <div class="modal-stock-name">${esc(s.name)}</div>
+            <div class="modal-stock-meta">${s.ticker} · ${s.market}</div>
+          </div>
+        </div>`;
+      }).join('');
+      modalList.querySelectorAll('.modal-stock-item').forEach(function (el) {
+        el.addEventListener('click', function () {
+          applySelection(el.getAttribute('data-ticker'), el.getAttribute('data-name'));
+          modal.classList.remove('open');
+        });
+      });
+      modal.classList.add('open');
+    }
+
+    // ── 템플릿 (admin) ─────────────────────────────────────────────────────────
     let templateData = null;
 
     if (isAdmin) {
       document.getElementById('templatePanel').style.display = '';
       await loadTemplate();
 
-      document.getElementById('tmplToggle').addEventListener('click', function () {
+      document.getElementById('tmplHeader').addEventListener('click', function () {
         const body = document.getElementById('tmplBody');
         const open = body.classList.toggle('open');
-        this.textContent = open ? '접기' : '펼치기';
+        document.getElementById('tmplToggleIcon').textContent = open ? '▼ 접기' : '▶ 펼치기';
       });
 
       document.getElementById('tmplSaveBtn').addEventListener('click', saveTemplate);
@@ -350,7 +634,7 @@
     function renderTemplate(tmpl) {
       document.getElementById('tmplSystemPrompt').value = tmpl.system_prompt || '';
       const sections = tmpl.sections || [];
-      document.getElementById('tmplSections').innerHTML = sections.map(function(s, i) {
+      document.getElementById('tmplSections').innerHTML = sections.map(function (s, i) {
         return `<div class="section-card" data-idx="${i}">
           <div class="section-title-row">
             <span class="section-num">${i + 1}.</span>
@@ -363,15 +647,14 @@
 
     async function saveTemplate() {
       const systemPrompt = document.getElementById('tmplSystemPrompt').value.trim();
-      const sectionCards = document.querySelectorAll('#tmplSections .section-card');
       const sections = [];
-      sectionCards.forEach(function(card, i) {
-        const title  = card.querySelector('.section-title-input').value.trim();
-        const prompt = card.querySelector('textarea').value.trim();
-        const key    = (templateData && templateData.sections && templateData.sections[i])
-          ? templateData.sections[i].key
-          : 'section_' + i;
-        sections.push({ key, title, prompt });
+      document.querySelectorAll('#tmplSections .section-card').forEach(function (card, i) {
+        sections.push({
+          key:    (templateData && templateData.sections && templateData.sections[i])
+                  ? templateData.sections[i].key : 'section_' + i,
+          title:  card.querySelector('.section-title-input').value.trim(),
+          prompt: card.querySelector('textarea').value.trim(),
+        });
       });
       try {
         await updateAnalysisTemplate({ system_prompt: systemPrompt, sections });
@@ -379,47 +662,65 @@
       } catch (e) { showToast(e.message, 'error'); }
     }
 
-    // ── 분석 실행 ─────────────────────────────────────────────────────────
+    // ── 분석 실행 ──────────────────────────────────────────────────────────────
     document.getElementById('analyzeBtn').addEventListener('click', doAnalysis);
-    document.getElementById('tickerInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') doAnalysis();
-    });
 
     async function doAnalysis() {
-      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
-      if (!ticker) { showToast('종목코드를 입력해주세요.', 'error'); return; }
+      // 종목이 선택되지 않은 경우 — 입력값 자동 검색
+      if (!selectedTicker) {
+        const q = stockInput.value.trim();
+        if (!q) { showToast('종목명 또는 종목코드를 입력해주세요.', 'error'); return; }
+        try {
+          const data = await searchStocks(q);
+          const items = data.items || [];
+          if (!items.length) { showToast('종목을 찾을 수 없습니다.', 'error'); return; }
+          if (items.length === 1) {
+            applySelection(items[0].ticker, items[0].name);
+          } else {
+            openModal(items);
+            return; // 팝업에서 선택 후 다시 분석 버튼 누르도록
+          }
+        } catch (e) { showToast(e.message, 'error'); return; }
+      }
 
       const priceVal = document.getElementById('priceInput').value.trim();
       const avgPrice = priceVal ? parseFloat(priceVal) : null;
 
-      // UI 상태 전환
+      // UI 전환
       document.getElementById('resultWrap').classList.remove('visible');
-      const loading = document.getElementById('loadingWrap');
-      loading.classList.add('visible');
+      document.getElementById('loadingWrap').classList.add('visible');
       document.getElementById('analyzeBtn').disabled = true;
 
-      const msgs = [
-        'ChatGPT가 분석 중입니다... 잠시만 기다려주세요.',
-        '종목 데이터를 수집하고 있습니다...',
-        '기술적 지표를 분석하고 있습니다...',
-        '분석 결과를 정리하고 있습니다...',
-      ];
-      let msgIdx = 0;
-      const msgEl = document.getElementById('loadingMsg');
-      const msgTimer = setInterval(function () {
-        msgIdx = (msgIdx + 1) % msgs.length;
-        msgEl.textContent = msgs[msgIdx];
-      }, 3000);
+      // 로딩 스텝 애니메이션
+      const steps = ['step1','step2','step3','step4'];
+      let stepIdx = 0;
+      function activateStep(i) {
+        steps.forEach(function (id, j) {
+          const el = document.getElementById(id);
+          el.classList.remove('active','done');
+          if (j < i)  el.classList.add('done');
+          if (j === i) el.classList.add('active');
+        });
+      }
+      activateStep(0);
+      const stepTimer = setInterval(function () {
+        stepIdx = Math.min(stepIdx + 1, steps.length - 1);
+        activateStep(stepIdx);
+      }, 2500);
 
       try {
-        const result = await runAnalysis(ticker, avgPrice);
-        clearInterval(msgTimer);
+        const result = await runAnalysis(selectedTicker, avgPrice);
+        clearInterval(stepTimer);
+        steps.forEach(function (id) {
+          document.getElementById(id).classList.remove('active');
+          document.getElementById(id).classList.add('done');
+        });
         renderResult(result);
       } catch (e) {
-        clearInterval(msgTimer);
+        clearInterval(stepTimer);
         showToast(e.message, 'error');
       } finally {
-        loading.classList.remove('visible');
+        document.getElementById('loadingWrap').classList.remove('visible');
         document.getElementById('analyzeBtn').disabled = false;
       }
     }
@@ -432,13 +733,24 @@
     };
 
     function renderResult(result) {
-      // 종목 요약 정보
-      const summaryEl = document.getElementById('stockSummary');
-      summaryEl.textContent = result.stock_info || '';
+      // 리서치 뱃지
+      const badge = document.getElementById('researchBadge');
+      if (result.research_count > 0) {
+        document.getElementById('researchCount').textContent = result.research_count;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
 
-      // 섹션별 분석 결과
+      // 요약 (매수/매도/전망)
+      document.getElementById('summaryContent').textContent = result.summary || '';
+
+      // 지표 박스
+      document.getElementById('stockInfoBox').textContent = result.stock_info || '';
+
+      // 섹션별
       const sections = result.sections || [];
-      document.getElementById('resultSections').innerHTML = sections.map(function(s) {
+      document.getElementById('resultSections').innerHTML = sections.map(function (s) {
         const icon = SECTION_ICONS[s.key] || '📋';
         return `<div class="result-section">
           <h3>${icon} ${esc(s.title)}</h3>
@@ -450,12 +762,8 @@
       document.getElementById('resultWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
     function esc(s) {
-      return String(s || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     function showToast(msg, type) {

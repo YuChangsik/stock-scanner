@@ -25,6 +25,16 @@
       transition: border-color .15s;
     }
     .scan-date-input:focus { border-color: var(--accent); }
+    .name-link {
+      cursor: pointer;
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .name-link:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -278,7 +288,7 @@
         return `<tr>
           <td>${rankBadge(i)}</td>
           <td class="ticker-cell"><span class="ticker-link" onclick="openDetail('${m.ticker}','${m.name||m.ticker}')">${m.ticker}</span></td>
-          <td class="name-cell">${m.name || '-'}</td>
+          <td class="name-cell"><span class="name-link" onclick="goAnalysis('${m.ticker}','${m.name||m.ticker}')" title="AI 종목분석">${m.name || '-'}</span></td>
           <td class="sector-cell">${m.sector || '-'}</td>
           <td class="num">${fmt(ind.close)}</td>
           <td class="num">${fmtChgPct(ind.change_pct)}</td>
@@ -547,6 +557,10 @@
         chart.applyOptions({ width: container.clientWidth });
       });
       ro.observe(container);
+    }
+
+    function goAnalysis(ticker, name) {
+      location.href = `/analysis.html?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`;
     }
 
     async function openDetail(ticker, name) {
