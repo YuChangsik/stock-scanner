@@ -614,7 +614,11 @@
         getMe(),
       ]);
       renderTags(me.scan_conditions);
-      await loadLatest();
+      if (me.scan_conditions && me.scan_conditions.length > 0) {
+        await doScan();
+      } else {
+        await loadLatest();
+      }
     })();
   </script>
 </body>
