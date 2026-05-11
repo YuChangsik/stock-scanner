@@ -362,7 +362,6 @@
     <div class="page-header">
       <div>
         <div class="page-title">🤖 종목분석</div>
-        <div class="page-subtitle">ChatGPT + 리서치 기반 AI 종목 분석</div>
       </div>
     </div>
 
@@ -461,14 +460,10 @@
       clearAuth(); location.href = '/login.html';
     });
 
-    // ── URL 파라미터 처리 (홈 화면에서 넘어올 때) ─────────────────────────────
+    // ── URL 파라미터 파싱 (DOM 요소 선언 전에 값만 읽어둠) ────────────────────
     const urlParams = new URLSearchParams(location.search);
     let selectedTicker = urlParams.get('ticker') || '';
     let selectedName   = urlParams.get('name')   || '';
-
-    if (selectedTicker) {
-      applySelection(selectedTicker, selectedName || selectedTicker);
-    }
 
     // ── 종목 검색 ─────────────────────────────────────────────────────────────
     const stockInput   = document.getElementById('stockInput');
@@ -476,6 +471,11 @@
     const selectedBadge = document.getElementById('selectedBadge');
     const selectedLabel = document.getElementById('selectedLabel');
     const clearBtn     = document.getElementById('clearSelected');
+
+    // ── URL 파라미터 자동 선택 (DOM 요소 선언 후에 실행) ─────────────────────
+    if (selectedTicker) {
+      applySelection(selectedTicker, selectedName || selectedTicker);
+    }
 
     let searchTimer = null;
 
