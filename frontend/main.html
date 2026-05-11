@@ -27,13 +27,14 @@
     .scan-date-input:focus { border-color: var(--accent); }
     .name-link {
       cursor: pointer;
-      color: var(--text-primary);
+      color: var(--accent);
       text-decoration: none;
-      transition: color .15s;
+      font-weight: 500;
+      transition: color .15s, text-decoration .15s;
     }
     .name-link:hover {
-      color: var(--accent);
       text-decoration: underline;
+      opacity: 0.85;
     }
   </style>
 </head>
@@ -65,7 +66,7 @@
       </div>
       <div class="scan-controls">
         <input type="date" class="scan-date-input" id="scanDateInput" title="조회 기준일 (기본: 전 거래일)" />
-        <button class="btn btn-primary" id="scanBtn">🔍 스캔 실행</button>
+        <button class="btn btn-primary" id="scanBtn">🔍 검색 실행</button>
       </div>
     </div>
 
@@ -80,11 +81,11 @@
         <div class="stat-value blue" id="statConditions">-</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">스캔 대상</div>
+        <div class="stat-label">검색 대상</div>
         <div class="stat-value" id="statTotal">전종목</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">마지막 스캔</div>
+        <div class="stat-label">마지막 검색</div>
         <div class="stat-value yellow" id="statTime" style="font-size:14px">-</div>
       </div>
     </div>
@@ -113,11 +114,11 @@
             <tr>
               <th>순위</th>
               <th>종목코드</th>
-              <th>종목명</th>
-              <th>업종</th>
+              <th>종목명 <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.7">🤖 AI분석</span></th>
               <th class="num">종가</th>
               <th class="num">등락률</th>
               <th class="num">거래량</th>
+              <th>업종</th>
               <th class="num">MA5</th>
               <th class="num">MA20</th>
               <th class="num">RSI14</th>
@@ -182,33 +183,28 @@
       clearAuth(); location.href = '/login.html';
     });
 
-    const conditionNames = {
-      volume_rank:       '거래량 순위',
-      rsi14:             'RSI14',
-      golden_cross:      '골든크로스',
-      macd:              'MACD',
-      ma_above:          '기준선 돌파',
-      prev_high_breakout:'전고점 돌파',
-      per:               'PER',
-      pbr:               'PBR',
-      sector:            '업종',
-    };
-
     function conditionLabel(c) {
       const params = c.params || {};
-      if (c.name === 'volume_rank')        return `거래량 Top ${params.threshold ?? 20}`;
-      if (c.name === 'rsi14')              return `RSI ${params.operator ?? '<'} ${params.threshold ?? 40}`;
-      if (c.name === 'golden_cross')       return `골든크로스(${params.within_days ?? 1}일 이내)`;
+      if (c.name === 'volume_rank')        return `거래량 순위 Top ${params.threshold ?? 20}`;
+      if (c.name === 'rsi14')              return `RSI 14 ${params.operator ?? '<'} ${params.threshold ?? 40}`;
+      if (c.name === 'golden_cross')       return `골든크로스 (MA5↑MA20)${params.within_days ? ' ' + params.within_days + '일 이내' : ''}`;
       if (c.name === 'macd')               return 'MACD 골든크로스';
-      if (c.name === 'ma_above')           return `${params.period ?? 60}일선 위`;
+      if (c.name === 'macd_histogram')     return 'MACD 히스토그램';
+      if (c.name === 'ma_above')           return `기준선 위 (${params.period ?? 60}일선)`;
+      if (c.name === 'ma_alignment')       return '이동평균 배열 상태';
       if (c.name === 'prev_high_breakout') return '전고점 돌파';
-      if (c.name === 'per')                return `PER ${params.operator ?? '<'} ${params.threshold ?? 15}`;
-      if (c.name === 'pbr')                return `PBR ${params.operator ?? '<'} ${params.threshold ?? 1}`;
+      if (c.name === 'per')                return `PER (주가수익비율) ${params.operator ?? '<'} ${params.threshold ?? 15}`;
+      if (c.name === 'pbr')                return `PBR (주가순자산비율) ${params.operator ?? '<'} ${params.threshold ?? 1}`;
       if (c.name === 'sector') {
         const list = params.sectors || [];
-        return list.length ? `업종: ${list.join('/')}` : '업종(전체)';
+        return list.length ? `업종 필터: ${list.join('/')}` : '업종 필터 (전체)';
       }
-      return conditionNames[c.name] || c.name;
+      if (c.name === 'volume_surge')       return `거래량 급증 (${params.multiplier ?? 2}배↑)`;
+      if (c.name === 'volume_recovery')    return '거래량 감소 후 재증가';
+      if (c.name === 'obv_rising')         return 'OBV 상승 (매집 신호)';
+      if (c.name === 'bollinger_band')     return '볼린저밴드 위치';
+      if (c.name === 'atr')                return 'ATR 변동성 조건';
+      return c.name;
     }
 
     function rankBadge(i) {
@@ -244,7 +240,7 @@
       const conds = (matches[0]?.matched_conditions || []);
       if (!conds.length) { row.style.display = 'none'; return; }
       tags.innerHTML = conds.map(c =>
-        `<span class="badge badge-green" style="font-size:11px">${conditionNames[c] || c}</span>`
+        `<span class="badge badge-green" style="font-size:11px">${conditionLabel({name:c,params:{}}) || c}</span>`
       ).join('');
       row.style.display = 'flex';
     }
@@ -288,11 +284,11 @@
         return `<tr>
           <td>${rankBadge(i)}</td>
           <td class="ticker-cell"><span class="ticker-link" onclick="openDetail('${m.ticker}','${m.name||m.ticker}')">${m.ticker}</span></td>
-          <td class="name-cell"><span class="name-link" onclick="goAnalysis('${m.ticker}','${m.name||m.ticker}')" title="AI 종목분석">${m.name || '-'}</span></td>
-          <td class="sector-cell">${m.sector || '-'}</td>
+          <td class="name-cell"><span class="name-link" onclick="goAnalysis('${m.ticker}','${m.name||m.ticker}')" title="AI 종목분석">🤖 ${m.name || '-'}</span></td>
           <td class="num">${fmt(ind.close)}</td>
           <td class="num">${fmtChgPct(ind.change_pct)}</td>
           <td class="num">${fmt(ind.volume)}</td>
+          <td class="sector-cell">${m.sector || '-'}</td>
           <td class="num">${fmt(ind.ma5, 0)}</td>
           <td class="num">${fmt(ind.ma20, 0)}</td>
           <td class="num">${fmtRsi(ind.rsi14)}</td>
@@ -315,14 +311,14 @@
         renderTable(data.matches || []);
       } catch {
         document.getElementById('loadingEl').innerHTML =
-          '<div style="color:var(--text2)">저장된 스캔 결과가 없습니다.<br>먼저 스캔을 실행하세요.</div>';
+          '<div style="color:var(--text2)">저장된 검색 결과가 없습니다.<br>먼저 검색을 실행하세요.</div>';
       }
     }
 
     async function doScan() {
       const btn = document.getElementById('scanBtn');
       btn.disabled = true;
-      btn.textContent = '스캔 중...';
+      btn.textContent = '검색 중...';
       document.getElementById('loadingEl').style.display = 'block';
       document.getElementById('resultTable').style.display = 'none';
       document.getElementById('emptyEl').style.display    = 'none';
@@ -341,16 +337,16 @@
         const result       = await runScan(conditions, selectedDate);
 
         const tradeDate = result.job?.trade_date || selectedDate || '-';
-        document.getElementById('scanDate').textContent = `기준일: ${tradeDate} · 스캔 완료`;
+        document.getElementById('scanDate').textContent = `기준일: ${tradeDate} · 검색 완료`;
         document.getElementById('statTime').textContent  = new Date().toLocaleString('ko-KR');
         renderTable(result.matches || []);
       } catch (ex) {
-        alert('스캔 실패: ' + ex.message);
+        alert('검색 실패: ' + ex.message);
         document.getElementById('loadingEl').innerHTML =
           '<div style="color:var(--red)">' + ex.message + '</div>';
       } finally {
         btn.disabled = false;
-        btn.textContent = '🔍 스캔 실행';
+        btn.textContent = '🔍 검색 실행';
       }
     }
 
