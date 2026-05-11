@@ -293,12 +293,6 @@ async def run_analysis(
     except ImportError:
         raise HTTPException(status_code=503, detail="openai 패키지가 설치되지 않았습니다.")
 
-    def _build_base_context() -> str:
-        ctx = f"[종목 데이터]\n{stock_info}"
-        if research_text:
-            ctx += f"\n\n[최근 리서치 ({len(research_items)}건)]\n{research_text}"
-        return ctx
-
     async def _ask(prompt_text: str, max_tokens: int = 1200) -> str:
         try:
             resp = await client.chat.completions.create(
@@ -325,7 +319,15 @@ async def run_analysis(
     elif avg_price:
         position_str = f"평단가 {avg_price:,.0f}원으로 보유 중입니다."
     else:
-        position_str = "평단가 미입력 (포지션 없거나 미제공)."
+        position_str = "평단가 미입력."
+
+    # position_str을 base context에 포함 → 모든 섹션 GPT 호출에서 동일하게 활용
+    def _build_base_context() -> str:
+        ctx = f"[종목 데이터]\n{stock_info}"
+        ctx += f"\n\n[포지션]\n{position_str}"
+        if research_text:
+            ctx += f"\n\n[최근 리서치 ({len(research_items)}건)]\n{research_text}"
+        return ctx
 
     summary_prompt = f"""아래 종목의 종합 분석을 해주세요.
 
@@ -344,16 +346,16 @@ async def run_analysis(
     # ── 2) 템플릿 섹션들 ──────────────────────────────────────────────────────
     section_prompts = []
     for section in tmpl.sections:
-        p = f"""아래 종목 데이터와 리서치를 참고하여 분석해주세요.
+        p = f"""위 종목 데이터, 포지션 정보, 리서치를 모두 참고하여 아래 항목을 분석해주세요.
 
 [분석 요청]
 {section['prompt']}
 
-분석 결과를 600자 내외로 간결하게 작성해주세요."""
+분석 결과를 700자 내외로 작성해주세요."""
         section_prompts.append((section, p))
 
     # 모든 GPT 호출 병렬 실행
-    tasks = [_ask(summary_prompt, max_tokens=1500)] + [_ask(p, max_tokens=1000) for _, p in section_prompts]
+    tasks = [_ask(summary_prompt, max_tokens=1500)] + [_ask(p, max_tokens=1200) for _, p in section_prompts]
     responses = await asyncio.gather(*tasks)
 
     summary_content = responses[0]

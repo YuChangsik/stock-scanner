@@ -180,8 +180,20 @@ async def public_run_analysis(
     except ImportError:
         raise HTTPException(status_code=503, detail="분석 서비스를 준비 중입니다.")
 
+    # 요약 프롬프트
+    avg_price = body.avg_price
+    if avg_price and close_price:
+        pct = (close_price - avg_price) / avg_price * 100
+        pos = f"현재 {pct:+.2f}% ({'수익' if pct >= 0 else '손실'}) 상태. 평단가 {avg_price:,.0f}원 / 현재가 {close_price:,.0f}원."
+    elif avg_price:
+        pos = f"평단가 {avg_price:,.0f}원으로 보유 중."
+    else:
+        pos = "평단가 미입력."
+
+    # pos를 base context에 포함 → 모든 섹션 GPT 호출이 포지션 정보를 동일하게 수신
     def _base_ctx() -> str:
         ctx = f"[종목 데이터]\n{stock_info}"
+        ctx += f"\n\n[포지션]\n{pos}"
         if research_text:
             ctx += f"\n\n[최근 리서치 ({len(research_items)}건)]\n{research_text}"
         return ctx
@@ -201,19 +213,7 @@ async def public_run_analysis(
         except Exception as e:
             return f"분석 중 오류 발생: {e}"
 
-    # 요약 프롬프트
-    avg_price = body.avg_price
-    if avg_price and close_price:
-        pct = (close_price - avg_price) / avg_price * 100
-        pos = f"현재 {pct:+.2f}% ({'수익' if pct >= 0 else '손실'}) 상태. 평단가 {avg_price:,.0f}원 / 현재가 {close_price:,.0f}원."
-    elif avg_price:
-        pos = f"평단가 {avg_price:,.0f}원으로 보유 중."
-    else:
-        pos = "평단가 미입력."
-
-    summary_prompt = f"""{pos}
-
-다음 항목을 **구체적인 주가 수치**를 포함하여 작성해주세요:
+    summary_prompt = f"""다음 항목을 **구체적인 주가 수치**를 포함하여 작성해주세요:
 
 1. **매수 추천 구간** (단기/중기 지지선 기반, 구체적 주가 범위)
 2. **매도 / 익절 구간** (저항선 기반, 구체적 주가 범위)
@@ -224,11 +224,11 @@ async def public_run_analysis(
 최근 리서치와 기술적 지표를 종합하여 근거 있는 분석을 제공해주세요."""
 
     section_asks = [
-        (s, f"[분석 요청]\n{s['prompt']}\n\n분석 결과를 600자 내외로 작성해주세요.")
+        (s, f"위 종목 데이터, 포지션 정보, 리서치를 모두 참고하여 아래 항목을 분석해주세요.\n\n[분석 요청]\n{s['prompt']}\n\n분석 결과를 700자 내외로 작성해주세요.")
         for s in sections
     ]
 
-    tasks = [_ask(summary_prompt, 1500)] + [_ask(p, 1000) for _, p in section_asks]
+    tasks = [_ask(summary_prompt, 1500)] + [_ask(p, 1200) for _, p in section_asks]
     responses = await asyncio.gather(*tasks)
 
     return {
