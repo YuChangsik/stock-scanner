@@ -85,35 +85,69 @@ async def public_run_analysis(
         )
     ).mappings().first()
 
-    stock_name = ticker
-    stock_info = ""
+    stock_name  = ticker
+    stock_info  = ""          # GPT 컨텍스트용 텍스트
     close_price: float | None = None
+    price_data: dict  = {}    # 프론트엔드 렌더링용 구조화 데이터
+    indicator_data: dict = {}
 
     if ind_row:
-        row = dict(ind_row)
+        row         = dict(ind_row)
         stock_name  = row.get("name", ticker)
         close_price = float(row.get("close") or row.get("close_price") or 0) or None
 
-        avg_price   = body.avg_price
-        profit_str  = ""
+        avg_price  = body.avg_price
+        profit_pct = None
         if avg_price and close_price:
             profit_pct = (close_price - avg_price) / avg_price * 100
-            profit_str = f"\n- 평단가: {avg_price:,.0f}원  현재가: {close_price:,.0f}원  수익률: {profit_pct:+.2f}%"
+
+        # 프론트엔드용 구조화 데이터
+        price_data = {
+            "close":      _fv(close_price, 0),
+            "chg_pct":    _fv(row.get("chg_pct"), 2, signed=True),
+            "volume":     _fv(row.get("volume"), 0),
+            "avg_price":  _fv(avg_price, 0) if avg_price else None,
+            "profit_pct": _fv(profit_pct, 1, signed=True) if profit_pct is not None else None,
+            "trade_date": str(row.get("trade_date", ""))[:10],
+            "sector":     row.get("sector") or "알 수 없음",
+        }
+        indicator_data = {
+            "rsi14":      _fv(row.get("rsi14"), 1),
+            "macd":       _fv(row.get("macd"), 2),
+            "macd_signal":_fv(row.get("macd_signal"), 2),
+            "macd_hist":  _fv(row.get("macd_hist"), 2),
+            "ma5":        _fv(row.get("ma5"), 0),
+            "ma20":       _fv(row.get("ma20"), 0),
+            "ma60":       _fv(row.get("ma60"), 0),
+            "ma120":      _fv(row.get("ma120"), 0),
+            "bb_upper":   _fv(row.get("bb_upper"), 0),
+            "bb_mid":     _fv(row.get("bb_mid"), 0),
+            "bb_lower":   _fv(row.get("bb_lower"), 0),
+            "obv":        _fv(row.get("obv"), 0),
+            "atr14":      _fv(row.get("atr14"), 0),
+            "per":        _fv(row.get("per"), 1),
+            "pbr":        _fv(row.get("pbr"), 2),
+        }
+
+        # GPT 컨텍스트용 텍스트
+        profit_str = ""
+        if avg_price and close_price and profit_pct is not None:
+            profit_str = f"\n- 평단가: {avg_price:,.0f}원  현재가: {close_price:,.0f}원  수익률: {profit_pct:+.1f}%"
 
         stock_info = f"""종목명: {stock_name}  종목코드: {ticker}
-업종: {row.get('sector') or '알 수 없음'}  기준일: {row.get('trade_date', '')}
+업종: {price_data['sector']}  기준일: {price_data['trade_date']}
 
 ■ 가격
-  현재가: {_fmt(close_price)}원  전일대비: {_fmt(row.get('chg_pct'), pct=True)}%
-  거래량: {_fmt(row.get('volume'), 0)}주{profit_str}
+  현재가: {price_data['close']}원  전일대비: {price_data['chg_pct']}%
+  거래량: {price_data['volume']}주{profit_str}
 
 ■ 기술 지표
-  RSI(14): {_fmt(row.get('rsi14'), 1)}
-  MACD: {_fmt(row.get('macd'), 4)}  Signal: {_fmt(row.get('macd_signal'), 4)}  Hist: {_fmt(row.get('macd_hist'), 4)}
-  MA5: {_fmt(row.get('ma5'))}  MA20: {_fmt(row.get('ma20'))}  MA60: {_fmt(row.get('ma60'))}  MA120: {_fmt(row.get('ma120'))}
-  BB상단: {_fmt(row.get('bb_upper'))}  BB중간: {_fmt(row.get('bb_mid'))}  BB하단: {_fmt(row.get('bb_lower'))}
-  OBV: {_fmt(row.get('obv'), 0)}  ATR(14): {_fmt(row.get('atr14'))}
-  PER: {_fmt(row.get('per'), 1)}  PBR: {_fmt(row.get('pbr'), 2)}"""
+  RSI(14): {indicator_data['rsi14']}
+  MACD: {indicator_data['macd']}  Signal: {indicator_data['macd_signal']}  Hist: {indicator_data['macd_hist']}
+  MA5: {indicator_data['ma5']}  MA20: {indicator_data['ma20']}  MA60: {indicator_data['ma60']}  MA120: {indicator_data['ma120']}
+  BB상단: {indicator_data['bb_upper']}  BB중간: {indicator_data['bb_mid']}  BB하단: {indicator_data['bb_lower']}
+  OBV: {indicator_data['obv']}  ATR: {indicator_data['atr14']}
+  PER: {indicator_data['per']}  PBR: {indicator_data['pbr']}"""
     else:
         stock_info = f"종목코드: {ticker}"
         if body.avg_price:
@@ -203,6 +237,8 @@ async def public_run_analysis(
         "stock_info":     stock_info,
         "avg_price":      body.avg_price,
         "research_count": len(research_items),
+        "price":          price_data,
+        "indicators":     indicator_data,
         "summary":        responses[0],
         "sections": [
             {"key": s["key"], "title": s["title"], "content": responses[i + 1]}
@@ -276,5 +312,17 @@ def _fmt(val, digits: int = 2, pct: bool = False) -> str:
     try:
         n = float(val)
         return f"{n:+.{digits}f}" if pct else f"{n:,.{digits}f}"
+    except Exception:
+        return str(val)
+
+
+def _fv(val, digits: int = 0, signed: bool = False) -> str | None:
+    """프론트엔드 렌더링용 포맷 — None이면 None 반환."""
+    if val is None:
+        return None
+    try:
+        n = float(val)
+        fmt = f"{n:+,.{digits}f}" if signed else f"{n:,.{digits}f}"
+        return fmt
     except Exception:
         return str(val)
