@@ -36,14 +36,14 @@
       </form>
 
       <div class="auth-footer">
-        이미 계정이 있으신가요? <a href="/login.html">로그인</a>
+        이미 계정이 있으신가요? <a href="/login">로그인</a>
       </div>
     </div>
   </div>
 
   <script src="/js/api.js"></script>
   <script>
-    if (getToken()) location.href = '/main.html';
+    if (getToken()) location.href = '/main';
 
     document.getElementById('signupForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -63,7 +63,7 @@
         );
         ok.textContent = '회원가입 완료! 메인 화면으로 이동합니다...';
         ok.style.display = 'block';
-        setTimeout(() => location.href = '/main.html', 1000);
+        setTimeout(() => location.href = '/main', 1000);
       } catch (ex) {
         err.textContent = ex.message;
         err.style.display = 'block';

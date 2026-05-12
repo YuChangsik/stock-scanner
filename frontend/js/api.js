@@ -21,7 +21,7 @@ async function apiFetch(path, options = {}) {
   });
   if (res.status === 401) {
     clearAuth();
-    location.href = '/login.html';
+    location.href = '/login';
     return;
   }
   const data = await res.json();
@@ -242,7 +242,7 @@ function applyNavPermissions(allowedPages) {
  * 2. /auth/me 로 역할·권한 조회 후 nav 업데이트
  */
 async function initNav() {
-  if (!getToken()) { location.href = '/login.html'; return; }
+  if (!getToken()) { location.href = '/login'; return; }
   const navUser = document.getElementById('navUser');
   if (navUser) navUser.textContent = getNickname() || '';
 
@@ -282,7 +282,7 @@ async function initNav() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function requireAuth() {
-  if (!getToken()) { location.href = '/login.html'; return false; }
+  if (!getToken()) { location.href = '/login'; return false; }
   return true;
 }
 

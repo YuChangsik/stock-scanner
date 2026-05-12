@@ -31,7 +31,7 @@
       </form>
 
       <div class="auth-footer">
-        계정이 없으신가요? <a href="/signup.html">회원가입</a>
+        계정이 없으신가요? <a href="/signup">회원가입</a>
       </div>
     </div>
   </div>
@@ -39,7 +39,7 @@
   <script src="/js/api.js"></script>
   <script>
     // 이미 로그인된 경우 메인으로
-    if (getToken()) location.href = '/main.html';
+    if (getToken()) location.href = '/main';
 
     document.getElementById('loginForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -54,7 +54,7 @@
           document.getElementById('username').value,
           document.getElementById('password').value,
         );
-        location.href = '/main.html';
+        location.href = '/main';
       } catch (ex) {
         err.textContent = ex.message;
         err.style.display = 'block';

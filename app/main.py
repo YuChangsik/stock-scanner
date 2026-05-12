@@ -251,5 +251,29 @@ async def backfill(request: Request):
     return {"status": "backfill_started", "message": "백그라운드에서 실행 중. 서버 로그에서 진행상황 확인 가능."}
 
 
+# ── Clean URL routing (/page → /page.html, /page.html → redirect /page) ──────
+import os as _os
+from fastapi.responses import FileResponse as _FileResponse, RedirectResponse as _RedirectResponse
+
+_FRONTEND_DIR = "frontend"
+
+@app.get("/{page}")
+async def serve_page(page: str, request: Request):
+    # /xxx.html → 301 redirect to /xxx (preserve query string)
+    if page.endswith(".html"):
+        base = page[:-5]
+        qs = request.url.query
+        return _RedirectResponse(
+            url=f"/{base}" + (f"?{qs}" if qs else ""),
+            status_code=301,
+        )
+    # /xxx → serve xxx.html if it exists
+    html_file = _os.path.join(_FRONTEND_DIR, f"{page}.html")
+    if _os.path.isfile(html_file):
+        return _FileResponse(html_file)
+    # fallback: let StaticFiles handle (CSS, JS, images, etc.)
+    raise HTTPException(status_code=404, detail="Not found")
+
+
 # Static files must be mounted LAST — it's a catch-all that would block API routes above it
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

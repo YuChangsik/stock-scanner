@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0;url=/login.html">
+  <meta http-equiv="refresh" content="0;url=/login">
   <title>댕댕투자</title>
 </head>
 <body>
   <script>
     const token = localStorage.getItem('token');
-    location.href = token ? '/main.html' : '/login.html';
+    location.href = token ? '/main' : '/login';
   </script>
 </body>
 </html>
