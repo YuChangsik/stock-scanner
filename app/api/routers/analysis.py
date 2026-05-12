@@ -235,7 +235,7 @@ async def run_analysis(
         await db.execute(
             sql_text("""
                 SELECT trade_date, close, open, high, low, volume
-                FROM prices
+                FROM daily_prices
                 WHERE ticker = :ticker
                 ORDER BY trade_date DESC
                 LIMIT 2
