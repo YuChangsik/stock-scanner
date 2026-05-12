@@ -84,6 +84,48 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Clean URL middleware (/page → /page.html, /page.html → /page) ─────────────
+import os as _os
+from fastapi.responses import FileResponse as _FileResponse, RedirectResponse as _RedirectResponse
+
+_FRONTEND_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "frontend")
+_SKIP_PREFIXES = ("/api/", "/docs", "/redoc", "/openapi", "/health")
+
+@app.middleware("http")
+async def clean_url_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # API / docs / built-in 경로는 그대로 통과
+    if any(path.startswith(p) for p in _SKIP_PREFIXES):
+        return await call_next(request)
+
+    last = path.rstrip("/").rsplit("/", 1)[-1]
+
+    # /xxx.html → 301 redirect /xxx  (쿼리스트링 유지)
+    if path.endswith(".html"):
+        base = path[:-5] or "/"
+        qs = request.url.query
+        return _RedirectResponse(url=base + (f"?{qs}" if qs else ""), status_code=301)
+
+    # 확장자가 있는 정적 파일(css, js, png 등)은 그대로 통과
+    if "." in last:
+        return await call_next(request)
+
+    # /page 또는 / → frontend/page.html 또는 frontend/index.html 서빙
+    if path == "/" or path == "":
+        html_file = _os.path.join(_FRONTEND_DIR, "index.html")
+    else:
+        page = path.strip("/")          # 'main', 'analysis' 등 단일 세그먼트
+        if "/" in page:                 # 다단계 경로는 통과
+            return await call_next(request)
+        html_file = _os.path.join(_FRONTEND_DIR, f"{page}.html")
+
+    if _os.path.isfile(html_file):
+        return _FileResponse(html_file)
+
+    return await call_next(request)
+
+
 # ── Exception handlers ────────────────────────────────────────────────────────
 
 @app.exception_handler(DataNotAvailableError)
@@ -249,30 +291,6 @@ async def backfill(request: Request):
 
     asyncio.create_task(run_backfill())
     return {"status": "backfill_started", "message": "백그라운드에서 실행 중. 서버 로그에서 진행상황 확인 가능."}
-
-
-# ── Clean URL routing (/page → /page.html, /page.html → redirect /page) ──────
-import os as _os
-from fastapi.responses import FileResponse as _FileResponse, RedirectResponse as _RedirectResponse
-
-_FRONTEND_DIR = "frontend"
-
-@app.get("/{page}")
-async def serve_page(page: str, request: Request):
-    # /xxx.html → 301 redirect to /xxx (preserve query string)
-    if page.endswith(".html"):
-        base = page[:-5]
-        qs = request.url.query
-        return _RedirectResponse(
-            url=f"/{base}" + (f"?{qs}" if qs else ""),
-            status_code=301,
-        )
-    # /xxx → serve xxx.html if it exists
-    html_file = _os.path.join(_FRONTEND_DIR, f"{page}.html")
-    if _os.path.isfile(html_file):
-        return _FileResponse(html_file)
-    # fallback: let StaticFiles handle (CSS, JS, images, etc.)
-    raise HTTPException(status_code=404, detail="Not found")
 
 
 # Static files must be mounted LAST — it's a catch-all that would block API routes above it
