@@ -230,27 +230,52 @@ async def run_analysis(
         )
     ).mappings().first()
 
+    # ── 가격 데이터 조회 (indicator_snapshots에 close/volume 없음) ─────────────
+    price_rows = (
+        await db.execute(
+            sql_text("""
+                SELECT trade_date, close, open, high, low, volume
+                FROM prices
+                WHERE ticker = :ticker
+                ORDER BY trade_date DESC
+                LIMIT 2
+            """),
+            {"ticker": ticker},
+        )
+    ).mappings().all()
+
+    latest_price = dict(price_rows[0]) if price_rows else {}
+    prev_price   = dict(price_rows[1]) if len(price_rows) > 1 else {}
+
+    close_price: float | None = float(latest_price["close"]) if latest_price.get("close") else None
+    volume_val:  int   | None = int(latest_price["volume"])  if latest_price.get("volume") else None
+    chg_pct_val: float | None = None
+    if close_price and prev_price.get("close"):
+        prev_close = float(prev_price["close"])
+        if prev_close:
+            chg_pct_val = (close_price - prev_close) / prev_close * 100
+
     stock_name = ticker
     stock_info = ""
-    close_price: float | None = None
 
     if ind_row:
         row = dict(ind_row)
         stock_name = row.get("name", ticker)
         avg_price = body.avg_price
-        close_price = float(row.get("close") or row.get("close_price") or 0) or None
 
         profit_str = ""
         if avg_price and close_price:
             profit_pct = (close_price - avg_price) / avg_price * 100
             profit_str = f"\n- 평단가: {avg_price:,.0f}원  현재가: {close_price:,.0f}원  수익률: {profit_pct:+.2f}%"
 
+        trade_date_str = str(latest_price.get("trade_date") or row.get("trade_date", ""))[:10]
+
         stock_info = f"""종목명: {stock_name}  종목코드: {ticker}
-업종: {row.get('sector') or '알 수 없음'}  기준일: {row.get('trade_date', '')}
+업종: {row.get('sector') or '알 수 없음'}  기준일: {trade_date_str}
 
 ■ 가격
-  현재가: {_fmt(close_price)}원  전일대비: {_fmt(row.get('chg_pct'), pct=True)}%
-  거래량: {_fmt(row.get('volume'), 0)}주{profit_str}
+  현재가: {_fmt(close_price)}원  전일대비: {_fmt(chg_pct_val, pct=True)}%
+  거래량: {_fmt(volume_val, 0)}주{profit_str}
 
 ■ 기술 지표
   RSI(14): {_fmt(row.get('rsi14'), 1)}
@@ -261,6 +286,8 @@ async def run_analysis(
   PER: {_fmt(row.get('per'), 1)}  PBR: {_fmt(row.get('pbr'), 2)}"""
     else:
         stock_info = f"종목코드: {ticker}"
+        if close_price:
+            stock_info += f"\n현재가: {close_price:,.0f}원"
         if body.avg_price:
             stock_info += f"\n평단가: {body.avg_price:,.0f}원"
 

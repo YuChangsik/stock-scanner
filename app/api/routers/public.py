@@ -85,48 +85,72 @@ async def public_run_analysis(
         )
     ).mappings().first()
 
+    # ── 가격 데이터 조회 (indicator_snapshots에 close/volume 없음) ─────────────
+    price_rows = (
+        await db.execute(
+            sql_text("""
+                SELECT trade_date, close, open, volume
+                FROM prices
+                WHERE ticker = :ticker
+                ORDER BY trade_date DESC
+                LIMIT 2
+            """),
+            {"ticker": ticker},
+        )
+    ).mappings().all()
+
+    latest_price = dict(price_rows[0]) if price_rows else {}
+    prev_price   = dict(price_rows[1]) if len(price_rows) > 1 else {}
+
+    close_price: float | None = float(latest_price["close"]) if latest_price.get("close") else None
+    volume_val:  int   | None = int(latest_price["volume"])  if latest_price.get("volume") else None
+    chg_pct_val: float | None = None
+    if close_price and prev_price.get("close"):
+        _prev_c = float(prev_price["close"])
+        if _prev_c:
+            chg_pct_val = (close_price - _prev_c) / _prev_c * 100
+
     stock_name  = ticker
-    stock_info  = ""          # GPT 컨텍스트용 텍스트
-    close_price: float | None = None
-    price_data: dict  = {}    # 프론트엔드 렌더링용 구조화 데이터
+    stock_info  = ""
+    price_data: dict  = {}
     indicator_data: dict = {}
 
     if ind_row:
-        row         = dict(ind_row)
-        stock_name  = row.get("name", ticker)
-        close_price = float(row.get("close") or row.get("close_price") or 0) or None
-
+        row        = dict(ind_row)
+        stock_name = row.get("name", ticker)
         avg_price  = body.avg_price
         profit_pct = None
         if avg_price and close_price:
             profit_pct = (close_price - avg_price) / avg_price * 100
 
+        trade_date_str = str(latest_price.get("trade_date") or row.get("trade_date", ""))[:10]
+
         # 프론트엔드용 구조화 데이터
         price_data = {
             "close":      _fv(close_price, 0),
-            "chg_pct":    _fv(row.get("chg_pct"), 2, signed=True),
-            "volume":     _fv(row.get("volume"), 0),
+            "chg_pct":    _fv(chg_pct_val, 2, signed=True),
+            "volume":     _fv(volume_val, 0),
             "avg_price":  _fv(avg_price, 0) if avg_price else None,
             "profit_pct": _fv(profit_pct, 1, signed=True) if profit_pct is not None else None,
-            "trade_date": str(row.get("trade_date", ""))[:10],
+            "trade_date": trade_date_str,
             "sector":     row.get("sector") or "알 수 없음",
         }
         indicator_data = {
-            "rsi14":      _fv(row.get("rsi14"), 1),
-            "macd":       _fv(row.get("macd"), 2),
-            "macd_signal":_fv(row.get("macd_signal"), 2),
-            "macd_hist":  _fv(row.get("macd_hist"), 2),
-            "ma5":        _fv(row.get("ma5"), 0),
-            "ma20":       _fv(row.get("ma20"), 0),
-            "ma60":       _fv(row.get("ma60"), 0),
-            "ma120":      _fv(row.get("ma120"), 0),
-            "bb_upper":   _fv(row.get("bb_upper"), 0),
-            "bb_mid":     _fv(row.get("bb_mid"), 0),
-            "bb_lower":   _fv(row.get("bb_lower"), 0),
-            "obv":        _fv(row.get("obv"), 0),
-            "atr14":      _fv(row.get("atr14"), 0),
-            "per":        _fv(row.get("per"), 1),
-            "pbr":        _fv(row.get("pbr"), 2),
+            "rsi14":       _fv(row.get("rsi14"), 1),
+            "macd":        _fv(row.get("macd"), 2),
+            "macd_signal": _fv(row.get("macd_signal"), 2),
+            "macd_hist":   _fv(row.get("macd_hist"), 2),
+            "ma5":         _fv(row.get("ma5"), 0),
+            "ma20":        _fv(row.get("ma20"), 0),
+            "ma60":        _fv(row.get("ma60"), 0),
+            "ma120":       _fv(row.get("ma120"), 0),
+            "bb_upper":    _fv(row.get("bb_upper"), 0),
+            "bb_mid":      _fv(row.get("bb_mid"), 0),
+            "bb_lower":    _fv(row.get("bb_lower"), 0),
+            "obv":         _fv(row.get("obv"), 0),
+            "atr14":       _fv(row.get("atr14"), 0),
+            "per":         _fv(row.get("per"), 1),
+            "pbr":         _fv(row.get("pbr"), 2),
         }
 
         # GPT 컨텍스트용 텍스트
@@ -135,7 +159,7 @@ async def public_run_analysis(
             profit_str = f"\n- 평단가: {avg_price:,.0f}원  현재가: {close_price:,.0f}원  수익률: {profit_pct:+.1f}%"
 
         stock_info = f"""종목명: {stock_name}  종목코드: {ticker}
-업종: {price_data['sector']}  기준일: {price_data['trade_date']}
+업종: {price_data['sector']}  기준일: {trade_date_str}
 
 ■ 가격
   현재가: {price_data['close']}원  전일대비: {price_data['chg_pct']}%
@@ -150,6 +174,8 @@ async def public_run_analysis(
   PER: {indicator_data['per']}  PBR: {indicator_data['pbr']}"""
     else:
         stock_info = f"종목코드: {ticker}"
+        if close_price:
+            stock_info += f"\n현재가: {close_price:,.0f}원"
         if body.avg_price:
             stock_info += f"\n평단가: {body.avg_price:,.0f}원"
 

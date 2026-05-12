@@ -53,6 +53,19 @@ class ScanService:
         try:
             today_snaps = await self._indicator_repo.get_by_date(request.trade_date)
             if not today_snaps:
+                # 요청 날짜에 데이터 없으면 최신 적재일로 자동 폴백
+                latest_date = await self._price_repo.get_latest_date()
+                if latest_date and latest_date != request.trade_date:
+                    logger.info(
+                        "scan_service.fallback_date",
+                        requested=str(request.trade_date),
+                        fallback=str(latest_date),
+                    )
+                    request = request.model_copy(update={"trade_date": latest_date})
+                    await self._scan_repo.update_job(job_id, {"trade_date": latest_date})
+                    today_snaps = await self._indicator_repo.get_by_date(latest_date)
+
+            if not today_snaps:
                 await self._scan_repo.update_job(job_id, {
                     "status": "failed",
                     "finished_at": datetime.now(tz=timezone.utc),
